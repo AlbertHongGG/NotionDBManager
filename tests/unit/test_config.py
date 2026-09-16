@@ -12,7 +12,8 @@ def test_env_loader_with_page(tmp_path: Path, monkeypatch) -> None:
         "NOTION_DB_MANAGER_TOKEN=secret_token_123\n"
         "NOTION_DB_MANAGER_DATABASE_NAME=行程安排\n"
         "NOTION_DB_MANAGER_PAGE=名古屋自由行\n"
-        "NOTION_DB_MANAGER_DATABASE_ID=c1387d8998314c289ea9952467d3df13\n",
+        "NOTION_DB_MANAGER_DATABASE_ID=c1387d8998314c289ea9952467d3df13\n"
+        "GOOGLE_MAP_API=AIzaSyTestKey123\n",
         encoding="utf-8",
     )
 
@@ -26,6 +27,9 @@ def test_env_loader_with_page(tmp_path: Path, monkeypatch) -> None:
         "NOTION_PAGE",
         "NOTION_DB_MANAGER_DATABASE_ID",
         "NOTION_DATABASE_ID",
+        "GOOGLE_MAP_API",
+        "GOOGLE_MAPS_API_KEY",
+        "GOOGLE_PLACES_API_KEY",
     ):
         monkeypatch.delenv(k, raising=False)
 
@@ -35,13 +39,16 @@ def test_env_loader_with_page(tmp_path: Path, monkeypatch) -> None:
     assert EnvLoader.get_database_name() == "行程安排"
     assert EnvLoader.get_page() == "名古屋自由行"
     assert EnvLoader.get_database_id() == "c1387d8998314c289ea9952467d3df13"
+    assert EnvLoader.get_google_map_api() == "AIzaSyTestKey123"
 
     settings = Settings(
         token=EnvLoader.get_token() or "",
         database_name=EnvLoader.get_database_name(),
         page=EnvLoader.get_page(),
         database_id=EnvLoader.get_database_id(),
+        google_map_api=EnvLoader.get_google_map_api(),
     )
     assert settings.token == "secret_token_123"
     assert settings.database_name == "行程安排"
     assert settings.page == "名古屋自由行"
+    assert settings.google_map_api == "AIzaSyTestKey123"

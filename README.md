@@ -27,6 +27,9 @@ NOTION_DB_MANAGER_DATABASE_NAME=行程安排
 NOTION_DB_MANAGER_PAGE=名古屋自由行
 # 亦可直接以 Database ID/網址精準定位 (完全免搜尋)
 # NOTION_DB_MANAGER_DATABASE_ID=c1387d89-9831-4c28-9ea9-952467d3df13
+
+# [選填] Google Places API 金鑰 (用於 enrich photos 指令)
+GOOGLE_MAP_API=AIzaSy_xxx
 ```
 
 - **優先順序**：命令列參數 > 環境變數 / `.env` > 終端互動輸入
@@ -43,6 +46,7 @@ NOTION_DB_MANAGER_PAGE=名古屋自由行
 | `--database-name` | 目標 Notion 資料庫名稱 | 若未提供，讀取 `.env` (`NOTION_DB_MANAGER_DATABASE_NAME`) 或終端提示輸入 |
 | `--database-id` | 目標 Notion 資料庫 ID 或網址 | 可於 `.env` (`NOTION_DB_MANAGER_DATABASE_ID`) 定義，直接定位且免搜尋 |
 | `--page` | 所屬專案頁/父頁面名稱、ID 或網址 | 可於 `.env` (`NOTION_DB_MANAGER_PAGE`) 定義，用以排除同名資料庫歧義 |
+| `--google-api-key` | Google Cloud Places API 金鑰 | 若未提供，讀取 `.env` (`GOOGLE_MAP_API`) |
 
 ---
 
@@ -71,6 +75,15 @@ NOTION_DB_MANAGER_PAGE=名古屋自由行
 - `replace`：清空資料庫中既有資料（封存原頁面），重新寫入全新資料。
 - `insert`：在指定 index 插入新資料列，後續既有列的索引順位自動往後推移。
 - `overwrite`：自指定 index 開始覆蓋既有列的可寫欄位，新資料未提供的可寫欄位將會清空。
+
+---
+
+### Enrich 指令群 (`notion-db-manager enrich <action>`)
+用於自動化強化資料（如根據地點名稱與導航自動抓取代表照片）。
+
+| 指令 | 說明 | 必要與可選參數 |
+| :--- | :--- | :--- |
+| `photos` | 自動為地點獲取代表相片並儲存至本地 | `--provider <playwright\|google>` [選填，預設 `playwright`]: 爬蟲或官方 Places API<br>`--input <PATH>` [選填]: 讀取本機匯出 JSON (如未提供則即時從 Notion 取得)<br>`--categories <CAT1> <CAT2>...` [選填]: 篩選特定類別 (若未指定則處理全部，包含交通) |
 
 ---
 
@@ -113,6 +126,21 @@ notion-db-manager writer write-rows --input rows.json --mode insert --index 2
 
 # 從第 5 列開始覆蓋資料
 notion-db-manager writer write-rows --input rows.json --mode overwrite --index 5
+```
+
+### 圖片獲取 (Enrich)
+```bash
+# 1. 預設使用 Playwright 爬蟲 (抓取所有項目包含交通，並寫入 output/images/<資料庫名稱>/)
+notion-db-manager enrich photos
+
+# 2. 使用 Google Places API (讀取 .env 中的 GOOGLE_MAP_API，極速下載官方原圖)
+notion-db-manager enrich photos --provider google
+
+# 3. 指定本機已匯出的 JSON 檔 (離線模式，免呼叫 Notion API)
+notion-db-manager enrich photos --input output/20260917_045325_export-all.json --provider google
+
+# 4. 只抓取特定標籤 (如僅限景點與用餐)
+notion-db-manager enrich photos --categories 景點 用餐 --provider google
 ```
 
 ---

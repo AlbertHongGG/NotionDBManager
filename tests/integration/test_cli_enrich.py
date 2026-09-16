@@ -1,0 +1,170 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
+
+from notion_db_manager.cli import main
+
+
+@pytest.fixture
+def sample_export_json(tmp_path: Path) -> Path:
+    data = {
+        "meta": {
+            "database_id": "db-test",
+            "database_name": "行程安排",
+            "export_type": "full",
+            "order_property": "__NDM_INDEX__",
+        },
+        "rows": [
+            {
+                "index": 1,
+                "page_id": "p1",
+                "properties": {
+                    "地點": {"type": "title", "value": "手長足長像"},
+                    "屬性": {"type": "multi_select", "value": ["景點"]},
+                },
+            },
+            {
+                "index": 2,
+                "page_id": "p2",
+                "properties": {
+                    "地點": {"type": "title", "value": "高山車站"},
+                    "屬性": {"type": "multi_select", "value": ["交通"]},
+                },
+            },
+        ],
+    }
+    input_file = tmp_path / "export.json"
+    input_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    return input_file
+
+
+def test_cli_enrich_photos_google(tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "enrich",
+            "photos",
+            "--input",
+            str(sample_export_json),
+            "--provider",
+            "google",
+            "--google-api-key",
+            "AIzaSyFakeKey123",
+        ],
+    )
+
+    search_response = MagicMock()
+    search_response.status_code = 200
+    search_response.json.return_value = {
+        "places": [
+            {
+                "id": "place_1",
+                "displayName": {"text": "手長足長像"},
+                "photos": [{"name": "places/p1/photos/ph1", "widthPx": 1200, "heightPx": 800}],
+            }
+        ]
+    }
+
+    media_response = MagicMock()
+    media_response.status_code = 200
+    media_response.content = b"fake-image-bytes"
+    media_response.headers = {"Content-Type": "image/jpeg"}
+    media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
+
+    with patch("requests.post", return_value=search_response), patch("requests.get", return_value=media_response):
+        main()
+
+    manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
+    assert manifest_file.is_file()
+
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    assert manifest["database_name"] == "行程安排"
+    assert manifest["provider"] == "google"
+    # By default, both items are processed (including 交通)
+    assert manifest["total_items"] == 2
+    assert manifest["success_count"] == 2
+
+    img1 = tmp_path / "output" / "images" / "行程安排" / "01_手長足長像.jpg"
+    assert img1.is_file()
+    assert img1.read_bytes() == b"fake-image-bytes"
+
+
+def test_cli_enrich_photos_category_filter(tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "enrich",
+            "photos",
+            "--input",
+            str(sample_export_json),
+            "--provider",
+            "google",
+            "--google-api-key",
+            "AIzaSyFakeKey123",
+            "--categories",
+            "景點",
+        ],
+    )
+
+    search_response = MagicMock()
+    search_response.status_code = 200
+    search_response.json.return_value = {
+        "places": [
+            {
+                "id": "place_1",
+                "displayName": {"text": "手長足長像"},
+                "photos": [{"name": "places/p1/photos/ph1", "widthPx": 1200, "heightPx": 800}],
+            }
+        ]
+    }
+
+    media_response = MagicMock()
+    media_response.status_code = 200
+    media_response.content = b"fake-image-bytes"
+    media_response.headers = {"Content-Type": "image/jpeg"}
+    media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
+
+    with patch("requests.post", return_value=search_response), patch("requests.get", return_value=media_response):
+        main()
+
+    manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    assert manifest["processed_count"] == 1
+    assert manifest["skipped_count"] == 1
+    assert manifest["success_count"] == 1
+
+
+def test_cli_enrich_photos_fail_fast(tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "enrich",
+            "photos",
+            "--input",
+            str(sample_export_json),
+            "--provider",
+            "google",
+            "--google-api-key",
+            "BadKey",
+        ],
+    )
+
+    error_response = MagicMock()
+    error_response.status_code = 400
+    error_response.text = '{"error": {"message": "API key not valid."}}'
+    error_response.json.return_value = {"error": {"message": "API key not valid."}}
+
+    with patch("requests.post", return_value=error_response):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1

@@ -11,6 +11,7 @@ ENV_TOKEN_KEYS = ("NOTION_DB_MANAGER_TOKEN", "NOTION_TOKEN")
 ENV_DB_KEYS = ("NOTION_DB_MANAGER_DATABASE_NAME", "NOTION_DATABASE_NAME")
 ENV_DB_ID_KEYS = ("NOTION_DB_MANAGER_DATABASE_ID", "NOTION_DATABASE_ID")
 ENV_PAGE_KEYS = ("NOTION_DB_MANAGER_PAGE", "NOTION_PAGE", "NOTION_DB_MANAGER_PARENT_PAGE", "NOTION_PARENT_PAGE")
+ENV_GOOGLE_MAP_KEYS = ("GOOGLE_MAP_API", "GOOGLE_MAPS_API_KEY", "GOOGLE_PLACES_API_KEY")
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +20,7 @@ class Settings:
     database_name: str | None = None
     database_id: str | None = None
     page: str | None = None
+    google_map_api: str | None = None
 
     def __post_init__(self) -> None:
         if not self.token or not self.token.strip():
@@ -85,6 +87,14 @@ class EnvLoader:
     @staticmethod
     def get_page() -> str | None:
         for key in ENV_PAGE_KEYS:
+            val = os.getenv(key)
+            if val:
+                return val.strip()
+        return None
+
+    @staticmethod
+    def get_google_map_api() -> str | None:
+        for key in ENV_GOOGLE_MAP_KEYS:
             val = os.getenv(key)
             if val:
                 return val.strip()

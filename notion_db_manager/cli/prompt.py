@@ -20,10 +20,12 @@ def resolve_settings(args: argparse.Namespace) -> Settings:
         database_name = input("Database name: ").strip()
 
     page = getattr(args, "page", None) or EnvLoader.get_page()
+    google_map_api = getattr(args, "google_api_key", None) or EnvLoader.get_google_map_api()
 
     return Settings(
         token=token,
         database_name=database_name,
         database_id=database_id,
         page=page,
+        google_map_api=google_map_api,
     )

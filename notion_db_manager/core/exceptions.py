@@ -44,3 +44,11 @@ class StorageError(NDMError):
 
 class ConfigurationError(NDMError):
     """Raised when required settings or tokens are missing or invalid."""
+
+
+class InfrastructureError(NDMError):
+    """Raised when external infrastructure (APIs, network, browser automation) fails."""
+
+
+class PhotoProviderError(InfrastructureError):
+    """Raised when photo provider execution fails fatally."""

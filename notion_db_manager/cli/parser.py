@@ -63,4 +63,34 @@ def build_parser() -> argparse.ArgumentParser:
     write_rows.add_argument("--mode", choices=["append", "insert", "overwrite"], required=True)
     write_rows.add_argument("--index", type=int, help="Required for insert and overwrite")
 
+    # Enrich category
+    enrich = subparsers.add_parser("enrich", help="Data enrichment operations")
+    enrich_subparsers = enrich.add_subparsers(dest="action", required=True)
+
+    # enrich photos
+    enrich_photos = enrich_subparsers.add_parser("photos", help="Fetch representative photos for places")
+    add_common_database_args(enrich_photos)
+    enrich_photos.add_argument(
+        "--provider",
+        choices=["playwright", "google"],
+        default="playwright",
+        help="Photo provider mechanism: 'playwright' (default, headless browser) or 'google' (Places API)",
+    )
+    enrich_photos.add_argument(
+        "--input",
+        default=None,
+        help="Path to an exported JSON file (e.g. output/...export-all.json); if omitted, fetches directly from Notion",
+    )
+    enrich_photos.add_argument(
+        "--categories",
+        nargs="+",
+        default=None,
+        help="Optional category filters (e.g. 景點 用餐). If omitted, processes all items (including 交通)",
+    )
+    enrich_photos.add_argument(
+        "--google-api-key",
+        default=None,
+        help="Google Places API key; defaults to GOOGLE_MAP_API in .env",
+    )
+
     return parser
