@@ -21,6 +21,10 @@ class PlacePhotoProvider(Protocol):
 class PhotoStorage(Protocol):
     """Abstraction for persisting place photos and manifest metadata."""
 
+    def prepare_directory(self, database_name: str, clean: bool = True) -> Path:
+        """Prepares the target storage directory. If clean=True, empties existing files first."""
+        ...
+
     def save_photo(self, database_name: str, place: PlaceItem, photo: PlacePhoto) -> Path:
         """Saves a photo binary to disk and returns the saved file path."""
         ...

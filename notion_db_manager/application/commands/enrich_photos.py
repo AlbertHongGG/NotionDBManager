@@ -34,7 +34,11 @@ class EnrichPlacePhotosCommand:
         pages: list[Page],
         categories: list[str] | None = None,
         provider_name: str = "unknown",
+        clean_directory: bool = True,
     ) -> PhotoEnrichSummary:
+        # Purge stale contents if clean_directory is True before processing new items
+        self.storage.prepare_directory(database_name, clean=clean_directory)
+
         items = [PlaceItem.from_page(p) for p in pages]
         allowed_cats = set(categories) if categories else None
 

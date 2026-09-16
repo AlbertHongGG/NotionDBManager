@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+import argparse
+
+from notion_db_manager.application.commands import (
+    CommandResult,
+    ImportFullCommand,
+    WriteColumnsCommand,
+    WriteRowsCommand,
+)
+from notion_db_manager.cli.handlers.base import ActionHandler
+from notion_db_manager.cli.prompt import resolve_settings
+from notion_db_manager.core.exceptions import ValidationError
+from notion_db_manager.domain.models import DatabaseQuery, PageReference
+from notion_db_manager.infrastructure.notion import NotionGatewayImpl, NotionHttpClient
+from notion_db_manager.infrastructure.storage import JsonDocumentStorage, PathResolver
+
+
+class WriterHandler(ActionHandler):
+    """Handles all 'writer' CLI subcommands."""
+
+    def handle(self, args: argparse.Namespace) -> None:
+        settings = resolve_settings(args)
+
+        client = NotionHttpClient(token=settings.token)
+        gateway = NotionGatewayImpl(client=client)
+        storage = JsonDocumentStorage(path_resolver=PathResolver())
+
+        parent_ref = PageReference.from_raw(settings.page) if settings.page else None
+        query = DatabaseQuery(
+            database_name=settings.database_name,
+            database_id=settings.database_id,
+            parent_page=parent_ref,
+        )
+        database = gateway.locate_database(query)
+        database = gateway.ensure_order_property(database)
+
+        action = args.action
+        result: CommandResult
+
+        if action == "import-full":
+            cmd = ImportFullCommand(gateway, storage)
+            result = cmd.execute(database, input_path=args.input, mode=args.mode)
+        elif action == "write-columns":
+            cmd = WriteColumnsCommand(gateway, storage)
+            result = cmd.execute(database, input_path=args.input, start_index=args.start_index)
+        elif action == "write-rows":
+            cmd = WriteRowsCommand(gateway, storage)
+            result = cmd.execute(
+                database,
+                input_path=args.input,
+                mode=args.mode,
+                index=args.index,
+            )
+        else:
+            raise ValidationError(f"未知的 writer 動作: {action}")
+
+        print(result.message)

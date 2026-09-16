@@ -40,8 +40,8 @@ def test_cli_export_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_ga
     )
 
     with (
-        patch("notion_db_manager.cli.dispatch.NotionHttpClient"),
-        patch("notion_db_manager.cli.dispatch.NotionGatewayImpl") as mock_gw_cls,
+        patch("notion_db_manager.cli.handlers.reader.NotionHttpClient"),
+        patch("notion_db_manager.cli.handlers.reader.NotionGatewayImpl") as mock_gw_cls,
     ):
         mock_gw = mock_gw_cls.return_value
         mock_gw.locate_database.return_value = mock_gateway_db
@@ -72,8 +72,8 @@ def test_cli_export_default_output(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     )
 
     with (
-        patch("notion_db_manager.cli.dispatch.NotionHttpClient"),
-        patch("notion_db_manager.cli.dispatch.NotionGatewayImpl") as mock_gw_cls,
+        patch("notion_db_manager.cli.handlers.reader.NotionHttpClient"),
+        patch("notion_db_manager.cli.handlers.reader.NotionGatewayImpl") as mock_gw_cls,
     ):
         mock_gw = mock_gw_cls.return_value
         mock_gw.locate_database.return_value = mock_gateway_db
@@ -110,8 +110,8 @@ def test_cli_export_with_page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, m
     )
 
     with (
-        patch("notion_db_manager.cli.dispatch.NotionHttpClient"),
-        patch("notion_db_manager.cli.dispatch.NotionGatewayImpl") as mock_gw_cls,
+        patch("notion_db_manager.cli.handlers.reader.NotionHttpClient"),
+        patch("notion_db_manager.cli.handlers.reader.NotionGatewayImpl") as mock_gw_cls,
     ):
         mock_gw = mock_gw_cls.return_value
         mock_gw.locate_database.return_value = mock_gateway_db
@@ -146,8 +146,8 @@ def test_cli_missing_database_error(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     with (
-        patch("notion_db_manager.cli.dispatch.NotionHttpClient"),
-        patch("notion_db_manager.cli.dispatch.NotionGatewayImpl") as mock_gw_cls,
+        patch("notion_db_manager.cli.handlers.reader.NotionHttpClient"),
+        patch("notion_db_manager.cli.handlers.reader.NotionGatewayImpl") as mock_gw_cls,
     ):
         mock_gw = mock_gw_cls.return_value
         from notion_db_manager.core.exceptions import DomainError

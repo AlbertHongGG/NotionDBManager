@@ -28,6 +28,24 @@ class LocalPhotoStorage(PhotoStorage):
         target_dir.mkdir(parents=True, exist_ok=True)
         return target_dir
 
+    def prepare_directory(self, database_name: str, clean: bool = True) -> Path:
+        """Prepares the database images directory, purging stale contents if clean=True."""
+        try:
+            import shutil
+
+            clean_db = sanitize_filename(database_name)
+            target_dir = self.path_resolver.get_output_dir() / "images" / clean_db
+            if clean and target_dir.exists():
+                for item in target_dir.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        shutil.rmtree(item)
+            target_dir.mkdir(parents=True, exist_ok=True)
+            return target_dir
+        except Exception as exc:
+            raise StorageError(f"準備或清理圖片目錄失敗 [{database_name}]: {exc}") from exc
+
     def save_photo(self, database_name: str, place: PlaceItem, photo: PlacePhoto) -> Path:
         try:
             target_dir = self.get_images_dir(database_name)

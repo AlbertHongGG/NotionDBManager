@@ -168,3 +168,58 @@ def test_cli_enrich_photos_fail_fast(tmp_path: Path, sample_export_json: Path, m
             main()
 
         assert exc_info.value.code == 1
+
+
+def test_cli_enrich_photos_cleans_stale_files(
+    tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    # Pre-create a stale directory with an obsolete file
+    stale_dir = tmp_path / "output" / "images" / "行程安排"
+    stale_dir.mkdir(parents=True, exist_ok=True)
+    stale_file = stale_dir / "old_leftover.jpg"
+    stale_file.write_text("old content", encoding="utf-8")
+    assert stale_file.is_file()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "enrich",
+            "photos",
+            "--input",
+            str(sample_export_json),
+            "--provider",
+            "google",
+            "--google-api-key",
+            "AIzaSyFakeKey123",
+            "--categories",
+            "景點",
+        ],
+    )
+
+    search_response = MagicMock()
+    search_response.status_code = 200
+    search_response.json.return_value = {
+        "places": [
+            {
+                "id": "place_1",
+                "displayName": {"text": "手長足長像"},
+                "photos": [{"name": "places/p1/photos/ph1", "widthPx": 1200, "heightPx": 800}],
+            }
+        ]
+    }
+
+    media_response = MagicMock()
+    media_response.status_code = 200
+    media_response.content = b"fake-image-bytes"
+    media_response.headers = {"Content-Type": "image/jpeg"}
+    media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
+
+    with patch("requests.post", return_value=search_response), patch("requests.get", return_value=media_response):
+        main()
+
+    # The stale file must have been deleted before new files were written
+    assert not stale_file.exists()
+    assert (stale_dir / "01_手長足長像.jpg").is_file()

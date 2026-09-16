@@ -92,5 +92,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Google Places API key; defaults to GOOGLE_MAP_API in .env",
     )
+    enrich_photos.add_argument(
+        "--no-clean",
+        action="store_true",
+        default=False,
+        help="Do not purge existing images in target output directory before download (default: purge old files)",
+    )
 
     return parser

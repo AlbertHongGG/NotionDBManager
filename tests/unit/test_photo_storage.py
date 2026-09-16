@@ -73,3 +73,18 @@ def test_local_photo_storage_save_manifest(tmp_path: Path) -> None:
     assert data["database_name"] == "行程安排"
     assert data["provider"] == "playwright"
     assert len(data["items"]) == 1
+
+
+def test_local_photo_storage_prepare_directory_clean(tmp_path: Path) -> None:
+    resolver = PathResolver(base_dir=tmp_path)
+    storage = LocalPhotoStorage(path_resolver=resolver)
+
+    target_dir = storage.get_images_dir("行程安排")
+    old_file = target_dir / "old_residual.jpg"
+    old_file.write_text("old", encoding="utf-8")
+    assert old_file.is_file()
+
+    # prepare_directory with clean=True should delete existing files
+    storage.prepare_directory("行程安排", clean=True)
+    assert not old_file.exists()
+    assert target_dir.is_dir()
