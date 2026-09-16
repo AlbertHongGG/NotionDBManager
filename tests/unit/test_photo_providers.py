@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from notion_db_manager.core.exceptions import ConfigurationError, PhotoProviderError, ValidationError
@@ -60,8 +59,12 @@ def test_google_places_photo_provider_success() -> None:
     media_response.headers = {"Content-Type": "image/jpeg"}
     media_response.url = "https://places.googleapis.com/v1/places/p1/photos/photo_abc/media"
 
-    with patch("requests.post", return_value=search_response), patch("requests.get", return_value=media_response):
-        photo = provider.fetch_photo(item)
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(return_value=search_response)
+    mock_client.get = AsyncMock(return_value=media_response)
+
+    with patch.object(provider, "_get_client", return_value=mock_client):
+        photo = asyncio.run(provider.fetch_photo(item))
 
     assert photo is not None
     assert photo.data == b"fake-jpeg-binary"
@@ -79,8 +82,12 @@ def test_google_places_photo_provider_api_error_fail_fast() -> None:
     error_response.text = '{"error": {"message": "API key not valid."}}'
     error_response.json.return_value = {"error": {"message": "API key not valid."}}
 
-    with patch("requests.post", return_value=error_response):
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(return_value=error_response)
+
+    with patch.object(provider, "_get_client", return_value=mock_client):
         with pytest.raises(PhotoProviderError) as exc_info:
-            provider.fetch_photo(item)
+            asyncio.run(provider.fetch_photo(item))
 
     assert "API key not valid" in str(exc_info.value)
+

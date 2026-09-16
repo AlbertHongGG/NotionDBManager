@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-import requests
+import httpx
 
 from notion_db_manager.application.interfaces.photo_provider import PlacePhotoProvider
 from notion_db_manager.core.exceptions import ConfigurationError, PhotoProviderError
@@ -9,7 +9,7 @@ from notion_db_manager.domain.places import PlaceItem, PlacePhoto
 
 
 class GooglePlacesPhotoProvider(PlacePhotoProvider):
-    """Retrieves official Google Maps place cover photos via Google Places API (New).
+    """Retrieves official Google Maps place cover photos via Google Places API (New) asynchronously.
 
     Enforces Fail-Fast: Any API error (bad key, quota limit, HTTP error) immediately
     raises PhotoProviderError rather than falling back.
@@ -23,16 +23,24 @@ class GooglePlacesPhotoProvider(PlacePhotoProvider):
             raise ConfigurationError("未提供 Google Places API 金鑰。請於 .env 設定 GOOGLE_MAP_API 或透過參數提供。")
         self.api_key = api_key.strip()
         self.timeout = timeout
+        self._client: httpx.AsyncClient | None = None
 
-    def fetch_photo(self, place: PlaceItem) -> PlacePhoto | None:
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=self.timeout, follow_redirects=True)
+        return self._client
+
+    async def fetch_photo(self, place: PlaceItem) -> PlacePhoto | None:
+        client = self._get_client()
+
         # Step 1: Text search for the place
         query = place.best_search_query()
-        data = self._search_place(query)
+        data = await self._search_place(client, query)
 
         places = data.get("places", [])
         if not places and place.alias and place.name != place.alias:
             # Try once with primary name if alias did not yield results
-            data = self._search_place(place.name)
+            data = await self._search_place(client, place.name)
             places = data.get("places", [])
 
         if not places:
@@ -57,9 +65,9 @@ class GooglePlacesPhotoProvider(PlacePhotoProvider):
             author = attributions[0].get("displayName")
 
         # Step 3: Fetch photo media
-        return self._fetch_media(photo_name, width=width, height=height, author=author)
+        return await self._fetch_media(client, photo_name, width=width, height=height, author=author)
 
-    def _search_place(self, text_query: str) -> dict[str, Any]:
+    async def _search_place(self, client: httpx.AsyncClient, text_query: str) -> dict[str, Any]:
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
@@ -68,7 +76,7 @@ class GooglePlacesPhotoProvider(PlacePhotoProvider):
         body = {"textQuery": text_query}
 
         try:
-            res = requests.post(self.SEARCH_ENDPOINT, json=body, headers=headers, timeout=self.timeout)
+            res = await client.post(self.SEARCH_ENDPOINT, json=body, headers=headers)
         except Exception as exc:
             raise PhotoProviderError(f"連線 Google Places API 失敗 [{text_query}]: {exc}") from exc
 
@@ -84,8 +92,9 @@ class GooglePlacesPhotoProvider(PlacePhotoProvider):
 
         return res.json()
 
-    def _fetch_media(
+    async def _fetch_media(
         self,
+        client: httpx.AsyncClient,
         photo_name: str,
         width: int | None = None,
         height: int | None = None,
@@ -95,7 +104,7 @@ class GooglePlacesPhotoProvider(PlacePhotoProvider):
         params = {"maxWidthPx": 1600, "key": self.api_key}
 
         try:
-            res = requests.get(url, params=params, timeout=self.timeout)
+            res = await client.get(url, params=params)
         except Exception as exc:
             raise PhotoProviderError(f"下載 Google Places 照片媒體失敗 [{photo_name}]: {exc}") from exc
 
@@ -109,8 +118,21 @@ class GooglePlacesPhotoProvider(PlacePhotoProvider):
             data=res.content,
             mime_type=content_type,
             extension=extension,
-            source_url=res.url,
+            source_url=str(res.url),
             width=width,
             height=height,
             author=author,
         )
+
+    async def close(self) -> None:
+        """Closes the underlying HTTP client session."""
+        if self._client and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
+
+    async def __aenter__(self) -> GooglePlacesPhotoProvider:
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        await self.close()
+

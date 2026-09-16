@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 
 from notion_db_manager.application.commands.enrich_photos import EnrichPlacePhotosCommand
 from notion_db_manager.cli.handlers.base import ActionHandler
-from notion_db_manager.cli.prompt import resolve_settings
+from notion_db_manager.cli.prompt import resolve_concurrency, resolve_settings
 from notion_db_manager.core.config import EnvLoader
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models import DatabaseQuery, PageReference
-from notion_db_manager.domain.places import PlaceItem
+from notion_db_manager.domain.places import PhotoEnrichSummary, PlaceItem
 from notion_db_manager.infrastructure.notion import NotionGatewayImpl, NotionHttpClient
 from notion_db_manager.infrastructure.photos import LocalPhotoStorage, PhotoProviderFactory, sanitize_filename
 from notion_db_manager.infrastructure.storage import JsonDocumentStorage, PathResolver
@@ -52,6 +53,10 @@ class EnrichHandler(ActionHandler):
         photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
         clean_directory = not getattr(args, "no_clean", False)
 
+        # Resolve concurrency with precedence: CLI flag > NOTION_DB_MANAGER_CONCURRENCY > provider default
+        default_concurrency = 8 if args.provider == "google" else 3
+        concurrency = resolve_concurrency(args, default=default_concurrency)
+
         def on_progress(idx: int, total: int, item: PlaceItem, status: str) -> None:
             cat_str = f" [{', '.join(item.categories)}]" if item.categories else ""
             print(f"[{idx}/{total}] {item.name}{cat_str}: {status}")
@@ -62,24 +67,28 @@ class EnrichHandler(ActionHandler):
             progress_callback=on_progress,
         )
 
-        try:
-            summary = cmd.execute(
-                database_name=db_name,
-                pages=pages,
-                categories=args.categories,
-                provider_name=args.provider,
-                clean_directory=clean_directory,
-            )
-        finally:
-            if hasattr(provider, "close"):
-                provider.close()
+        async def _run() -> PhotoEnrichSummary:
+            try:
+                return await cmd.execute(
+                    database_name=db_name,
+                    pages=pages,
+                    categories=args.categories,
+                    provider_name=args.provider,
+                    clean_directory=clean_directory,
+                    concurrency=concurrency,
+                )
+            finally:
+                await provider.close()
+
+        summary = asyncio.run(_run())
 
         clean_db = sanitize_filename(db_name)
         print("\n" + "=" * 55)
-        print(f"圖片獲取完成！總計 {summary.total_items} 筆項目：")
+        print(f"圖片獲取完成！總計 {summary.total_items} 筆項目（並發數: {concurrency}）：")
         print(f"  - 成功下載: {summary.success_count} 筆")
         print(f"  - 略過項目: {summary.skipped_count} 筆")
         print(f"  - 失敗項目: {summary.failed_count} 筆")
         print(f"圖片儲存目錄: output/images/{clean_db}/")
         print(f"詳細報告檔案: output/images/{clean_db}/manifest.json")
         print("=" * 55)
+

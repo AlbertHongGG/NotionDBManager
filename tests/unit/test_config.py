@@ -52,3 +52,23 @@ def test_env_loader_with_page(tmp_path: Path, monkeypatch) -> None:
     assert settings.database_name == "行程安排"
     assert settings.page == "名古屋自由行"
     assert settings.google_map_api == "AIzaSyTestKey123"
+
+
+def test_env_loader_concurrency(monkeypatch) -> None:
+    import pytest
+    from notion_db_manager.core.exceptions import ConfigurationError
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "4")
+    assert EnvLoader.get_concurrency() == 4
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "1")
+    assert EnvLoader.get_concurrency() == 1
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "0")
+    with pytest.raises(ConfigurationError, match="大於或等於 1"):
+        EnvLoader.get_concurrency()
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "not_a_number")
+    with pytest.raises(ConfigurationError, match="必須為整數"):
+        EnvLoader.get_concurrency()
+

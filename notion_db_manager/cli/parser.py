@@ -93,6 +93,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Google Places API key; defaults to GOOGLE_MAP_API in .env",
     )
     enrich_photos.add_argument(
+        "-c",
+        "--concurrency",
+        type=int,
+        default=None,
+        help="Maximum concurrent downloads (defaults to NOTION_DB_MANAGER_CONCURRENCY in .env, or provider default: Playwright=3, Google=8)",
+    )
+    enrich_photos.add_argument(
         "--no-clean",
         action="store_true",
         default=False,

@@ -12,6 +12,7 @@ ENV_DB_KEYS = ("NOTION_DB_MANAGER_DATABASE_NAME", "NOTION_DATABASE_NAME")
 ENV_DB_ID_KEYS = ("NOTION_DB_MANAGER_DATABASE_ID", "NOTION_DATABASE_ID")
 ENV_PAGE_KEYS = ("NOTION_DB_MANAGER_PAGE", "NOTION_PAGE", "NOTION_DB_MANAGER_PARENT_PAGE", "NOTION_PARENT_PAGE")
 ENV_GOOGLE_MAP_KEYS = ("GOOGLE_MAP_API", "GOOGLE_MAPS_API_KEY", "GOOGLE_PLACES_API_KEY")
+ENV_CONCURRENCY_KEY = "NOTION_DB_MANAGER_CONCURRENCY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,12 +22,15 @@ class Settings:
     database_id: str | None = None
     page: str | None = None
     google_map_api: str | None = None
+    concurrency: int | None = None
 
     def __post_init__(self) -> None:
         if not self.token or not self.token.strip():
             raise ConfigurationError("Notion API Token 不能為空")
         if not self.database_name and not self.database_id:
             raise ConfigurationError("必須提供 Notion Database Name 或 Database ID (可由參數或 .env 設定)")
+        if self.concurrency is not None and self.concurrency < 1:
+            raise ConfigurationError("NOTION_DB_MANAGER_CONCURRENCY 必須為大於或等於 1 的正整數")
 
 
 class EnvLoader:
@@ -99,3 +103,20 @@ class EnvLoader:
             if val:
                 return val.strip()
         return None
+
+    @staticmethod
+    def get_concurrency() -> int | None:
+        val = os.getenv(ENV_CONCURRENCY_KEY)
+        if val is None:
+            return None
+        cleaned = val.strip()
+        if not cleaned:
+            return None
+        try:
+            val_int = int(cleaned)
+        except ValueError as exc:
+            raise ConfigurationError(f"環境變數 {ENV_CONCURRENCY_KEY} 必須為整數，收到: {cleaned}") from exc
+        if val_int < 1:
+            raise ConfigurationError(f"環境變數 {ENV_CONCURRENCY_KEY} 必須為大於或等於 1 的正整數，收到: {val_int}")
+        return val_int
+

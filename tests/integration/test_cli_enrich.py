@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+import httpx
 import pytest
 
 from notion_db_manager.cli import main
@@ -55,6 +56,8 @@ def test_cli_enrich_photos_google(tmp_path: Path, sample_export_json: Path, monk
             "google",
             "--google-api-key",
             "AIzaSyFakeKey123",
+            "--concurrency",
+            "2",
         ],
     )
 
@@ -76,7 +79,9 @@ def test_cli_enrich_photos_google(tmp_path: Path, sample_export_json: Path, monk
     media_response.headers = {"Content-Type": "image/jpeg"}
     media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
 
-    with patch("requests.post", return_value=search_response), patch("requests.get", return_value=media_response):
+    with patch.object(httpx.AsyncClient, "post", new=AsyncMock(return_value=search_response)), patch.object(
+        httpx.AsyncClient, "get", new=AsyncMock(return_value=media_response)
+    ):
         main()
 
     manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
@@ -131,7 +136,9 @@ def test_cli_enrich_photos_category_filter(tmp_path: Path, sample_export_json: P
     media_response.headers = {"Content-Type": "image/jpeg"}
     media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
 
-    with patch("requests.post", return_value=search_response), patch("requests.get", return_value=media_response):
+    with patch.object(httpx.AsyncClient, "post", new=AsyncMock(return_value=search_response)), patch.object(
+        httpx.AsyncClient, "get", new=AsyncMock(return_value=media_response)
+    ):
         main()
 
     manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
@@ -163,7 +170,7 @@ def test_cli_enrich_photos_fail_fast(tmp_path: Path, sample_export_json: Path, m
     error_response.text = '{"error": {"message": "API key not valid."}}'
     error_response.json.return_value = {"error": {"message": "API key not valid."}}
 
-    with patch("requests.post", return_value=error_response):
+    with patch.object(httpx.AsyncClient, "post", new=AsyncMock(return_value=error_response)):
         with pytest.raises(SystemExit) as exc_info:
             main()
 
@@ -217,9 +224,59 @@ def test_cli_enrich_photos_cleans_stale_files(
     media_response.headers = {"Content-Type": "image/jpeg"}
     media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
 
-    with patch("requests.post", return_value=search_response), patch("requests.get", return_value=media_response):
+    with patch.object(httpx.AsyncClient, "post", new=AsyncMock(return_value=search_response)), patch.object(
+        httpx.AsyncClient, "get", new=AsyncMock(return_value=media_response)
+    ):
         main()
 
     # The stale file must have been deleted before new files were written
     assert not stale_file.exists()
     assert (stale_dir / "01_手長足長像.jpg").is_file()
+
+
+def test_cli_enrich_photos_env_concurrency(
+    tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "1")
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "enrich",
+            "photos",
+            "--input",
+            str(sample_export_json),
+            "--provider",
+            "google",
+            "--google-api-key",
+            "AIzaSyFakeKey123",
+        ],
+    )
+
+    search_response = MagicMock()
+    search_response.status_code = 200
+    search_response.json.return_value = {
+        "places": [
+            {
+                "id": "place_1",
+                "displayName": {"text": "手長足長像"},
+                "photos": [{"name": "places/p1/photos/ph1", "widthPx": 1200, "heightPx": 800}],
+            }
+        ]
+    }
+
+    media_response = MagicMock()
+    media_response.status_code = 200
+    media_response.content = b"fake-image-bytes"
+    media_response.headers = {"Content-Type": "image/jpeg"}
+    media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
+
+    with patch.object(httpx.AsyncClient, "post", new=AsyncMock(return_value=search_response)), patch.object(
+        httpx.AsyncClient, "get", new=AsyncMock(return_value=media_response)
+    ):
+        main()
+
+    manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
+    assert manifest_file.is_file()
+

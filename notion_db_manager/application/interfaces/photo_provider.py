@@ -9,12 +9,16 @@ from notion_db_manager.domain.places import PhotoEnrichSummary, PlaceItem, Place
 class PlacePhotoProvider(Protocol):
     """Abstraction for external photo retrieval mechanisms."""
 
-    def fetch_photo(self, place: PlaceItem) -> PlacePhoto | None:
-        """Fetches the representative photo for a place.
+    async def fetch_photo(self, place: PlaceItem) -> PlacePhoto | None:
+        """Fetches the representative photo for a place asynchronously.
 
         Returns PlacePhoto if found, None if the place has no photos available.
         Raises an exception if the provider itself encounters a fatal error (Fail-Fast).
         """
+        ...
+
+    async def close(self) -> None:
+        """Closes provider resources (browser, HTTP client, etc.) asynchronously."""
         ...
 
 

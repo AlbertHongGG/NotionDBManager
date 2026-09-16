@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from notion_db_manager.application.commands.enrich_photos import EnrichPlacePhotosCommand
@@ -28,7 +28,7 @@ def test_enrich_photos_command_success(mock_storage: MagicMock) -> None:
         extension="jpg",
         source_url="https://example.com/img.jpg",
     )
-    provider.fetch_photo.return_value = dummy_photo
+    provider.fetch_photo = AsyncMock(return_value=dummy_photo)
 
     pages = [
         Page(
@@ -51,7 +51,7 @@ def test_enrich_photos_command_success(mock_storage: MagicMock) -> None:
 
     cmd = EnrichPlacePhotosCommand(provider, mock_storage)
     # Default without categories: all items are processed (including 交通)
-    summary = cmd.execute("行程安排", pages, provider_name="google")
+    summary = cmd.execute_sync("行程安排", pages, provider_name="google", concurrency=2)
 
     assert summary.total_items == 2
     assert summary.processed_count == 2
@@ -72,7 +72,7 @@ def test_enrich_photos_command_with_category_filter(mock_storage: MagicMock) -> 
         extension="jpg",
         source_url="https://example.com/img.jpg",
     )
-    provider.fetch_photo.return_value = dummy_photo
+    provider.fetch_photo = AsyncMock(return_value=dummy_photo)
 
     pages = [
         Page(
@@ -95,7 +95,7 @@ def test_enrich_photos_command_with_category_filter(mock_storage: MagicMock) -> 
 
     cmd = EnrichPlacePhotosCommand(provider, mock_storage)
     # Filter only "景點"
-    summary = cmd.execute("行程安排", pages, categories=["景點"], provider_name="google")
+    summary = cmd.execute_sync("行程安排", pages, categories=["景點"], provider_name="google")
 
     assert summary.total_items == 2
     assert summary.processed_count == 1
@@ -108,7 +108,7 @@ def test_enrich_photos_command_with_category_filter(mock_storage: MagicMock) -> 
 
 def test_enrich_photos_fail_fast_on_provider_error(mock_storage: MagicMock) -> None:
     provider = MagicMock(spec=PlacePhotoProvider)
-    provider.fetch_photo.side_effect = InfrastructureError("Google Places API 認證失敗")
+    provider.fetch_photo = AsyncMock(side_effect=InfrastructureError("Google Places API 認證失敗"))
 
     pages = [
         Page(
@@ -123,8 +123,9 @@ def test_enrich_photos_fail_fast_on_provider_error(mock_storage: MagicMock) -> N
 
     cmd = EnrichPlacePhotosCommand(provider, mock_storage)
     with pytest.raises(InfrastructureError) as exc_info:
-        cmd.execute("行程安排", pages, provider_name="google")
+        cmd.execute_sync("行程安排", pages, provider_name="google")
 
     assert "Google Places API 認證失敗" in str(exc_info.value)
     # Since it failed fast, nothing was saved
     assert mock_storage.save_photo.call_count == 0
+
