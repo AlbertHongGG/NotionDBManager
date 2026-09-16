@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import re
 import urllib.parse
 from typing import Any
 
 from notion_db_manager.application.interfaces.photo_provider import PlacePhotoProvider
 from notion_db_manager.core.exceptions import PhotoProviderError
 from notion_db_manager.domain.places import PlaceItem, PlacePhoto
+from notion_db_manager.infrastructure.photos.maps_page import GoogleMapsPageObject
+from notion_db_manager.infrastructure.photos.url_enhancer import GooglePhotoUrlEnhancer
 
 
 class PlaywrightPhotoProvider(PlacePhotoProvider):
@@ -15,15 +16,6 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
     Enforces Fail-Fast: Any browser launch failure or fatal exception immediately raises
     PhotoProviderError.
     """
-
-    PHOTO_SELECTORS = [
-        "button[aria-label*='相片'] img",
-        "button[aria-label*='Photo'] img",
-        "button.aoDRFc img",
-        "div[role='main'] img[src*='googleusercontent.com']",
-        "img[src*='googleusercontent.com/p/']",
-        "img[src*='googleusercontent.com/gps-cs-s/']",
-    ]
 
     def __init__(self, headless: bool = True, timeout: float = 20.0) -> None:
         self.headless = headless
@@ -62,15 +54,16 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
 
         try:
             target_url = self._resolve_target_url(place)
-            page.goto(target_url, wait_until="domcontentloaded", timeout=self.timeout_ms)
+            maps_page = GoogleMapsPageObject(page, timeout_ms=self.timeout_ms)
+            maps_page.navigate(target_url)
 
-            # Try locating cover photo
-            img_src = self._find_photo_src(page)
+            # Locate hero cover photo URL via Page Object Model
+            img_src = maps_page.locate_hero_photo_url()
             if not img_src:
                 return None
 
-            # Enhance image resolution if Google thumbnail parameters are present
-            high_res_url = self._enhance_resolution(img_src)
+            # Enhance image resolution to high definition
+            high_res_url = GooglePhotoUrlEnhancer.enhance_resolution(img_src)
 
             # Download using browser context request to preserve session and headers
             res = page.request.get(high_res_url, timeout=self.timeout_ms)
@@ -129,34 +122,6 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
         query = place.best_search_query()
         return f"https://www.google.com/maps/search/{urllib.parse.quote(query)}"
 
-    def _find_photo_src(self, page: Any) -> str | None:
-        # Wait briefly for either of the photo elements to appear
-        for selector in self.PHOTO_SELECTORS:
-            try:
-                elem = page.wait_for_selector(selector, timeout=3000)
-                if elem:
-                    src = elem.get_attribute("src")
-                    if src and ("googleusercontent.com" in src or "ggpht.com" in src):
-                        return src
-            except Exception:
-                continue
-
-        # If none matched by selector, inspect all images in main pane
-        try:
-            imgs = page.query_selector_all("img")
-            for img in imgs:
-                src = img.get_attribute("src")
-                if src and ("googleusercontent.com/p/" in src or "googleusercontent.com/gps-cs-s/" in src):
-                    return src
-        except Exception:
-            pass
-
-        return None
-
     def _enhance_resolution(self, url: str) -> str:
-        """Transforms Google image URL size constraints to high-resolution (w1600-h1200)."""
-        if "=w" in url:
-            return re.sub(r"=w\d+[^\"']*", "=w1600-h1200-k-no", url)
-        if "=s" in url:
-            return re.sub(r"=s\d+[^\"']*", "=s1600", url)
-        return url
+        """Helper delegating to GooglePhotoUrlEnhancer."""
+        return GooglePhotoUrlEnhancer.enhance_resolution(url)

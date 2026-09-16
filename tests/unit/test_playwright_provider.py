@@ -36,9 +36,11 @@ def test_playwright_provider_fetch_photo_mocked() -> None:
     item = PlaceItem(page_id="1", index=1, name="手長足長像")
 
     mock_page = MagicMock()
-    mock_elem = MagicMock()
-    mock_elem.get_attribute.return_value = "https://lh3.googleusercontent.com/p/test=w100-h100"
-    mock_page.wait_for_selector.return_value = mock_elem
+    mock_btn = MagicMock()
+    mock_img = MagicMock()
+    mock_img.get_attribute.return_value = "https://lh3.googleusercontent.com/p/test=w100-h100"
+    mock_btn.wait_for_selector.return_value = mock_img
+    mock_page.wait_for_selector.return_value = mock_btn
 
     mock_res = MagicMock()
     mock_res.ok = True
@@ -57,3 +59,39 @@ def test_playwright_provider_fetch_photo_mocked() -> None:
     assert photo.extension == "jpg"
     assert "=w1600-h1200-k-no" in photo.source_url
     mock_page.close.assert_called_once()
+
+
+def test_playwright_provider_fatal_error_fails_fast() -> None:
+    from notion_db_manager.core.exceptions import PhotoProviderError
+
+    provider = PlaywrightPhotoProvider()
+    item = PlaceItem(page_id="1", index=1, name="手長足長像")
+
+    mock_page = MagicMock()
+    mock_page.goto.side_effect = Exception("Target page, context or browser has been closed")
+    mock_browser = MagicMock()
+    mock_browser.new_page.return_value = mock_page
+
+    with patch.object(provider, "_ensure_browser", return_value=mock_browser):
+        with pytest.raises(PhotoProviderError, match="瀏覽器異常終止"):
+            provider.fetch_photo(item)
+
+
+def test_maps_page_locate_hero_photo_ignores_avatar() -> None:
+    from notion_db_manager.infrastructure.photos.maps_page import GoogleMapsPageObject
+
+    mock_page = MagicMock()
+    mock_btn = MagicMock()
+    mock_img = MagicMock()
+    # Returns avatar URL on all attempts
+    mock_img.get_attribute.return_value = "https://lh3.googleusercontent.com/a/ACg8ocIS-avatar=s60-c-mo"
+    mock_btn.wait_for_selector.return_value = mock_img
+    mock_page.wait_for_selector.return_value = mock_btn
+
+    maps_page = GoogleMapsPageObject(mock_page, timeout_ms=500)
+    # Patch time.sleep in maps_page to avoid test delay
+    with patch("notion_db_manager.infrastructure.photos.maps_page.time.sleep"):
+        url = maps_page.locate_hero_photo_url()
+
+    assert url is None
+
