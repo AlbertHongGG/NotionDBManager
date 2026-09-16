@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-notion-db-manager = "notion_db_manager.cli.main:main"
+notion-db-manager = "notion_db_manager.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["notion_db_manager*"]

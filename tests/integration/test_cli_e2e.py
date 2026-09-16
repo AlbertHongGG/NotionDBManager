@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 import pytest
 
-from notion_db_manager.cli.main import main
+from notion_db_manager.cli import main
 from notion_db_manager.domain.models import Database, Page, PropertyDefinition
 from notion_db_manager.domain.properties import TitleProperty
 

@@ -1,113 +1,110 @@
 # Notion DB Manager
 
-這是一個 Python CLI 工具，提供 Notion database 的 Reader / Writer 功能。
+Notion Database 讀寫 CLI 工具，提供 Notion 資料庫與本機 JSON 檔案之間的雙向同步、部分更新與列操作。
 
-工具會用資料庫名稱尋找 Notion database，並自動建立一個 `__NDM_INDEX__` 的 number 欄位作為 row 順序依據，讓 `index` 操作可以固定從 `1` 開始。這個內部欄位預設不會出現在一般匯出 JSON 裡。
+---
 
-## 安裝
+## 1. 安裝與設定
 
+### 安裝
 ```bash
 python -m venv .venv
-. .venv/Scripts/activate
+# Windows:
+.venv\Scripts\activate
+# Linux / macOS:
+source .venv/bin/activate
+
 pip install -e .
 ```
 
-## 使用方式
-
-若未提供 `--token` 或 `--database-name`，程式會在執行時互動輸入。
-
-如果你會重複操作同一個資料庫，建議在專案根目錄建立 `.env`:
+### 認證設定
+可透過命令列參數、環境變數或專案根目錄 `.env` 提供金鑰：
 
 ```dotenv
 NOTION_DB_MANAGER_TOKEN=secret_xxx
 NOTION_DB_MANAGER_DATABASE_NAME=Tasks
 ```
 
-之後就可以省略這兩個參數:
+- **優先順序**：命令列參數 (`--token`, `--database-name`) > 環境變數 / `.env` > 終端互動輸入
+- **檔案路徑慣例**：所有相對路徑統一預設存取專案根目錄下的 `output/` 資料夾（例如 `-o all.json` 實際會寫入 `output/all.json`）
 
+---
+
+## 2. 指令與參數列表 (Command Reference)
+
+### 全域共用參數 (所有子指令皆可使用)
+| 參數 | 說明 | 備註 |
+| :--- | :--- | :--- |
+| `--token` | Notion Integration Token | 若未提供，讀取 `.env` 或終端提示輸入 |
+| `--database-name` | 目標 Notion 資料庫名稱 | 若未提供，讀取 `.env` 或終端提示輸入 |
+
+---
+
+### Reader 指令群 (`notion-db-manager reader <action>`)
+用於讀取 Notion 資料庫並匯出為標準 JSON。
+
+| 指令 | 說明 | 必要與可選參數 |
+| :--- | :--- | :--- |
+| `export-all` | 匯出全部資料列與全部欄位 | `-o, --output <PATH>` [必要]: 輸出 JSON 檔案路徑 |
+| `export-columns` | 只匯出指定欄位 | `--columns <COL1> <COL2>...` [必要]: 欲匯出的欄位名稱<br>`-o, --output <PATH>` [必要]: 輸出 JSON 檔案路徑 |
+| `export-rows` | 只匯出指定列索引 | `--rows <EXPR>` [必要]: 列索引表達式 (如 `1,3,5-7`)<br>`-o, --output <PATH>` [必要]: 輸出 JSON 檔案路徑 |
+
+---
+
+### Writer 指令群 (`notion-db-manager writer <action>`)
+用於將 JSON 資料寫回 Notion 資料庫。
+
+| 指令 | 說明 | 必要與可選參數 |
+| :--- | :--- | :--- |
+| `import-full` | 完整匯入 JSON 資料 | `--input <PATH>` [必要]: 輸入 JSON 檔案路徑<br>`--mode <append\|replace>` [必要]: 匯入模式 |
+| `write-columns` | 自指定起點寫入部分欄位 | `--input <PATH>` [必要]: 輸入 JSON 檔案路徑<br>`--start-index <INT>` [選填，預設 `1`]: 起始列索引 (超出既有列數時自動新增) |
+| `write-rows` | 整列資料寫入 | `--input <PATH>` [必要]: 輸入 JSON 檔案路徑<br>`--mode <append\|insert\|overwrite>` [必要]: 寫入模式<br>`--index <INT>` [`insert` 與 `overwrite` 必要]: 目標起始索引 |
+
+#### 寫入模式 (Mode) 說明
+- `append`：新增在資料庫末端。
+- `replace`：清空資料庫中既有資料（封存原頁面），重新寫入全新資料。
+- `insert`：在指定 index 插入新資料列，後續既有列的索引順位自動往後推移。
+- `overwrite`：自指定 index 開始覆蓋既有列的可寫欄位，新資料未提供的可寫欄位將會清空。
+
+---
+
+## 3. 常用指令範例
+
+### 匯出 (Reader)
 ```bash
-notion-db-manager reader export-all --output all.json
+# 匯出全部資料到 output/all.json
+notion-db-manager reader export-all -o all.json
+
+# 只匯出 Name, Status, Score 三個欄位
+notion-db-manager reader export-columns --columns Name Status Score -o columns.json
+
+# 只匯出第 1、第 3 以及第 5 至 7 列
+notion-db-manager reader export-rows --rows 1,3,5-7 -o rows.json
 ```
 
-所有相對路徑的 JSON 輸入輸出都會統一走專案根目錄下的 `output/`。
-例如 `--output all.json` 實際會寫到 `output/all.json`；
-`--input all.json` 也會優先從 `output/all.json` 讀取。
-
-參數優先順序是:
-
-1. 命令列參數 `--token` / `--database-name`
-2. 作業系統環境變數或 `.env`
-3. 執行時互動輸入
-
-支援的環境變數名稱:
-
-1. `NOTION_DB_MANAGER_TOKEN`
-2. `NOTION_DB_MANAGER_DATABASE_NAME`
-3. `NOTION_TOKEN`
-4. `NOTION_DATABASE_NAME`
-
-### Reader
-
-完整匯出:
-
+### 寫入 (Writer)
 ```bash
-notion-db-manager reader export-all --token "secret_xxx" --database-name "Tasks" --output all.json
+# 清空既有資料並全量匯入
+notion-db-manager writer import-full --input all.json --mode replace
+
+# 追加資料到現有資料庫後方
+notion-db-manager writer import-full --input all.json --mode append
+
+# 從第 3 列開始寫入指定欄位
+notion-db-manager writer write-columns --input columns.json --start-index 3
+
+# 在第 2 列插入新列 (後續資料自動順移)
+notion-db-manager writer write-rows --input rows.json --mode insert --index 2
+
+# 從第 5 列開始覆蓋資料
+notion-db-manager writer write-rows --input rows.json --mode overwrite --index 5
 ```
 
-只匯出指定欄位:
+---
 
-```bash
-notion-db-manager reader export-columns --token "secret_xxx" --database-name "Tasks" --columns Name Status Score --output columns.json
-```
+## 4. 資料規格與注意事項
 
-只匯出指定 row:
-
-```bash
-notion-db-manager reader export-rows --token "secret_xxx" --database-name "Tasks" --rows 1,3,5-7 --output rows.json
-```
-
-### Writer
-
-把 `export-all` 的 JSON append 到現有資料庫:
-
-```bash
-notion-db-manager writer import-full --token "secret_xxx" --database-name "Tasks" --input all.json --mode append
-```
-
-先清空資料庫再匯入 `export-all` 的 JSON:
-
-```bash
-notion-db-manager writer import-full --token "secret_xxx" --database-name "Tasks" --input all.json --mode replace
-```
-
-從指定 index 開始覆蓋指定欄位；如果超出既有 row 數，會自動新增新 page:
-
-```bash
-notion-db-manager writer write-columns --token "secret_xxx" --database-name "Tasks" --input columns.json --start-index 3
-```
-
-新增 row 到最後:
-
-```bash
-notion-db-manager writer write-rows --token "secret_xxx" --database-name "Tasks" --input rows.json --mode append
-```
-
-在指定 index 插入 row，後面的資料順位往後移:
-
-```bash
-notion-db-manager writer write-rows --token "secret_xxx" --database-name "Tasks" --input rows.json --mode insert --index 3
-```
-
-從指定 index 開始覆蓋既有 row，不會新增新 page:
-
-```bash
-notion-db-manager writer write-rows --token "secret_xxx" --database-name "Tasks" --input rows.json --mode overwrite --index 3
-```
-
-## JSON 格式
-
-三種 Reader 都輸出同樣的外層格式:
-
+### JSON 交換規格範例
 ```json
 {
   "meta": {
@@ -117,83 +114,22 @@ notion-db-manager writer write-rows --token "secret_xxx" --database-name "Tasks"
     "selected_columns": [],
     "selected_rows": [],
     "order_property": "__NDM_INDEX__",
-    "exported_at": "2026-03-16T00:00:00+00:00"
+    "exported_at": "2026-09-17T00:00:00+00:00"
   },
   "rows": [
     {
       "index": 1,
       "page_id": "...",
       "properties": {
-        "Name": {"type": "title", "value": "Task A"},
-        "Status": {"type": "status", "value": "Todo"},
-        "Score": {"type": "number", "value": 10}
+        "Name": { "type": "title", "value": "Task A" },
+        "Status": { "type": "status", "value": "Done" },
+        "Score": { "type": "number", "value": 100 }
       }
     }
   ]
 }
 ```
 
-`write-columns` 可以直接吃 `export-columns` 產出的檔案。
-
-`write-rows` 可以直接吃 `export-rows` 產出的檔案。
-
-`import-full` 會直接吃 `export-all` 產出的檔案。
-
-## 注意事項
-
-1. Notion API 本身沒有穩定的資料列插入順位 API，所以本工具會以 `__NDM_INDEX__` 維護順序。
-2. `replace` 模式是把原有 page archive 後再重建新資料，不是把 archive 的 page 復用。
-3. `overwrite` row 模式會把該 row 的可寫欄位改成新資料；未提供的可寫欄位會清空。
-4. 公式、rollup、created time 這類唯讀欄位會匯出，但寫入時會自動忽略。
-
-## 專案結構 (Clean Architecture)
-
-```text
-output/                             # 統一收斂 JSON 輸入輸出
-notion_db_manager/
-├── core/                           # 核心基底 (例外階層、環境配置、通用型別)
-│   ├── config.py
-│   ├── exceptions.py
-│   └── types.py
-├── domain/                         # 領域層 (純商業邏輯與富領域模型)
-│   ├── models/                     # Database, Page, Document 實體
-│   │   ├── database.py
-│   │   ├── document.py
-│   │   └── page.py
-│   ├── properties/                 # 多型屬性策略系統 (PropertyValue & Registry)
-│   │   ├── base.py
-│   │   ├── file.py
-│   │   ├── number.py
-│   │   ├── primitive.py
-│   │   ├── readonly.py
-│   │   ├── registry.py
-│   │   ├── relation.py
-│   │   ├── select.py
-│   │   └── text.py
-│   └── validation.py               # 領域驗證 (列索引表達式解析等)
-├── application/                    # 應用層 (Command 模式與介面抽象)
-│   ├── commands/                   # 各項獨立功能抽象 (Use Cases)
-│   │   ├── base.py
-│   │   ├── export_all.py
-│   │   ├── export_columns.py
-│   │   ├── export_rows.py
-│   │   ├── import_full.py
-│   │   ├── write_columns.py
-│   │   └── write_rows.py
-│   └── interfaces/                 # 依賴反轉介面 (Ports)
-│       ├── document_storage.py
-│       └── notion_gateway.py
-├── infrastructure/                 # 基礎設施層 (具體實作 Adapters)
-│   ├── notion/                     # Notion API 通訊與轉換
-│   │   ├── client.py
-│   │   ├── gateway.py
-│   │   └── mappers.py
-│   └── storage/                    # 檔案儲存與路徑解析
-│       ├── json_storage.py
-│       └── path_resolver.py
-└── cli/                            # 命令列介面層 (CLI Presentation)
-    ├── dispatch.py                 # 命令分派與相依注入
-    ├── main.py                     # CLI 總進入點
-    ├── parser.py                   # 參數解析構建
-    └── prompt.py                   # 終端互動輸入提示
-```
+### 注意事項
+1. **排序列維護**：工具會自動在資料庫建立 `__NDM_INDEX__` (number) 欄位來固定列順序 (由 1 起算)。
+2. **唯讀欄位處理**：公式 (formula)、彙總 (rollup)、建立時間等唯讀欄位會正常匯出，寫入時會自動忽略以確保成功寫入。

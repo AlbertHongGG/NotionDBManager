@@ -5,8 +5,8 @@ import argparse
 from notion_db_manager.core.config import EnvLoader, Settings
 
 
-def resolve_settings_from_cli(args: argparse.Namespace) -> Settings:
-    """Resolve token and database_name from CLI args, .env/env-vars, or interactive prompt."""
+def resolve_settings(args: argparse.Namespace) -> Settings:
+    """Resolve token and database_name from CLI arguments, environment, or interactive prompt."""
     EnvLoader.load()
 
     token = getattr(args, "token", None) or EnvLoader.get_token()

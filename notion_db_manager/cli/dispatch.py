@@ -12,7 +12,7 @@ from notion_db_manager.application.commands import (
     WriteColumnsCommand,
     WriteRowsCommand,
 )
-from notion_db_manager.cli.prompt import resolve_settings_from_cli
+from notion_db_manager.cli.prompt import resolve_settings
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.infrastructure.notion import NotionGatewayImpl, NotionHttpClient
 from notion_db_manager.infrastructure.storage import JsonDocumentStorage, PathResolver
@@ -22,7 +22,7 @@ class Dispatcher:
     """Dispatches parsed CLI commands to domain-level Application Commands."""
 
     def dispatch(self, args: argparse.Namespace) -> None:
-        settings = resolve_settings_from_cli(args)
+        settings = resolve_settings(args)
 
         client = NotionHttpClient(token=settings.token)
         gateway = NotionGatewayImpl(client=client)
