@@ -146,23 +146,54 @@ notion-db-manager writer write-rows --token "secret_xxx" --database-name "Tasks"
 3. `overwrite` row 模式會把該 row 的可寫欄位改成新資料；未提供的可寫欄位會清空。
 4. 公式、rollup、created time 這類唯讀欄位會匯出，但寫入時會自動忽略。
 
-## 專案結構
+## 專案結構 (Clean Architecture)
 
 ```text
-output/                     # 統一收斂 JSON 輸入輸出
+output/                             # 統一收斂 JSON 輸入輸出
 notion_db_manager/
-├─ cli.py                  # CLI 入口與 command handler
-├─ constants.py            # 常數與欄位型別設定
-├─ exceptions.py           # 共用例外
-├─ models.py               # 核心資料模型
-├─ json_storage.py         # JSON 讀寫
-├─ paths.py                # output/input 路徑解析
-├─ notion/
-│  ├─ client.py            # Notion API client
-│  └─ serializers.py       # Notion <-> JSON 轉換
-└─ services/
-  ├─ context.py           # token / database context 解析
-  ├─ reader.py            # Reader 業務邏輯
-  ├─ validation.py        # index / column 驗證
-  └─ writer.py            # Writer 業務邏輯
+├── core/                           # 核心基底 (例外階層、環境配置、通用型別)
+│   ├── config.py
+│   ├── exceptions.py
+│   └── types.py
+├── domain/                         # 領域層 (純商業邏輯與富領域模型)
+│   ├── models/                     # Database, Page, Document 實體
+│   │   ├── database.py
+│   │   ├── document.py
+│   │   └── page.py
+│   ├── properties/                 # 多型屬性策略系統 (PropertyValue & Registry)
+│   │   ├── base.py
+│   │   ├── file.py
+│   │   ├── number.py
+│   │   ├── primitive.py
+│   │   ├── readonly.py
+│   │   ├── registry.py
+│   │   ├── relation.py
+│   │   ├── select.py
+│   │   └── text.py
+│   └── validation.py               # 領域驗證 (列索引表達式解析等)
+├── application/                    # 應用層 (Command 模式與介面抽象)
+│   ├── commands/                   # 各項獨立功能抽象 (Use Cases)
+│   │   ├── base.py
+│   │   ├── export_all.py
+│   │   ├── export_columns.py
+│   │   ├── export_rows.py
+│   │   ├── import_full.py
+│   │   ├── write_columns.py
+│   │   └── write_rows.py
+│   └── interfaces/                 # 依賴反轉介面 (Ports)
+│       ├── document_storage.py
+│       └── notion_gateway.py
+├── infrastructure/                 # 基礎設施層 (具體實作 Adapters)
+│   ├── notion/                     # Notion API 通訊與轉換
+│   │   ├── client.py
+│   │   ├── gateway.py
+│   │   └── mappers.py
+│   └── storage/                    # 檔案儲存與路徑解析
+│       ├── json_storage.py
+│       └── path_resolver.py
+└── cli/                            # 命令列介面層 (CLI Presentation)
+    ├── dispatch.py                 # 命令分派與相依注入
+    ├── main.py                     # CLI 總進入點
+    ├── parser.py                   # 參數解析構建
+    └── prompt.py                   # 終端互動輸入提示
 ```

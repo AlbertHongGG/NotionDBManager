@@ -13,7 +13,12 @@ dependencies = [
 ]
 
 [project.scripts]
-notion-db-manager = "notion_db_manager.cli:main"
+notion-db-manager = "notion_db_manager.cli.main:main"
 
 [tool.setuptools.packages.find]
 include = ["notion_db_manager*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

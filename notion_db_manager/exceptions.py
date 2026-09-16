@@ -1,2 +1,0 @@
-class NotionAPIError(RuntimeError):
-    pass
