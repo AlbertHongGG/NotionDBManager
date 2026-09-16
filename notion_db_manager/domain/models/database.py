@@ -24,12 +24,20 @@ class PropertyDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class DatabaseParent:
+    parent_type: str
+    parent_id: str | None = None
+    parent_title: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Database:
     id: str
     name: str
     properties: dict[str, PropertyDefinition]
     title_property_name: str
     order_property_name: str = ORDER_PROPERTY
+    parent: DatabaseParent | None = None
 
     def has_property(self, name: str) -> bool:
         return name in self.properties

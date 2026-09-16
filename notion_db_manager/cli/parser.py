@@ -5,7 +5,9 @@ import argparse
 
 def add_common_database_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--token", help="Notion integration token; defaults to .env or environment variables")
-    parser.add_argument("--database-name", help="Exact Notion database name; defaults to .env or environment variables")
+    parser.add_argument("--database-name", help="Notion database name; defaults to .env or environment variables")
+    parser.add_argument("--database-id", help="Exact Notion database ID or URL; defaults to .env or environment variables")
+    parser.add_argument("--page", help="Parent page name, Page ID, or Notion URL to scope the database; defaults to .env")
 
 
 def build_parser() -> argparse.ArgumentParser:

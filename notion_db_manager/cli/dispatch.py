@@ -14,6 +14,7 @@ from notion_db_manager.application.commands import (
 )
 from notion_db_manager.cli.prompt import resolve_settings
 from notion_db_manager.core.exceptions import ValidationError
+from notion_db_manager.domain.models import DatabaseQuery, PageReference
 from notion_db_manager.infrastructure.notion import NotionGatewayImpl, NotionHttpClient
 from notion_db_manager.infrastructure.storage import JsonDocumentStorage, PathResolver
 
@@ -28,7 +29,13 @@ class Dispatcher:
         gateway = NotionGatewayImpl(client=client)
         storage = JsonDocumentStorage(path_resolver=PathResolver())
 
-        database = gateway.search_database_by_name(settings.database_name)
+        parent_ref = PageReference.from_raw(settings.page) if settings.page else None
+        query = DatabaseQuery(
+            database_name=settings.database_name,
+            database_id=settings.database_id,
+            parent_page=parent_ref,
+        )
+        database = gateway.locate_database(query)
         database = gateway.ensure_order_property(database)
 
         cmd: BaseCommand

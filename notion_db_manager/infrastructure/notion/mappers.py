@@ -34,12 +34,20 @@ class NotionMapper:
         if not title_property_name:
             raise DomainError(f"資料庫 (ID: {database_id}) 缺少 title 欄位，無法操作")
 
+        from notion_db_manager.domain.models.database import DatabaseParent
+
+        parent_data = data.get("parent", {})
+        parent_type = parent_data.get("type", "")
+        parent_id = parent_data.get(parent_type) if parent_type in ("page_id", "block_id", "database_id") else None
+        parent_obj = DatabaseParent(parent_type=parent_type, parent_id=parent_id) if parent_type else None
+
         return Database(
             id=database_id,
             name=title,
             properties=properties,
             title_property_name=title_property_name,
             order_property_name=order_property,
+            parent=parent_obj,
         )
 
     @staticmethod

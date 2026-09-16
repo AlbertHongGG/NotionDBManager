@@ -17,16 +17,20 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### 認證設定
-可透過命令列參數、環境變數或專案根目錄 `.env` 提供金鑰：
+### 認證與專案設定
+可透過命令列參數、環境變數或專案根目錄 `.env` 提供金鑰與定位設定：
 
 ```dotenv
 NOTION_DB_MANAGER_TOKEN=secret_xxx
-NOTION_DB_MANAGER_DATABASE_NAME=Tasks
+NOTION_DB_MANAGER_DATABASE_NAME=行程安排
+# 若存在多個同名資料庫，可指定所屬專案/父頁面 (支援名稱、Page ID 或 Notion 網址)
+NOTION_DB_MANAGER_PAGE=名古屋自由行
+# 亦可直接以 Database ID/網址精準定位 (完全免搜尋)
+# NOTION_DB_MANAGER_DATABASE_ID=c1387d89-9831-4c28-9ea9-952467d3df13
 ```
 
-- **優先順序**：命令列參數 (`--token`, `--database-name`) > 環境變數 / `.env` > 終端互動輸入
-- **檔案路徑慣例**：所有相對路徑統一預設存取專案根目錄下的 `output/` 資料夾（例如 `-o all.json` 實際會寫入 `output/all.json`）
+- **優先順序**：命令列參數 > 環境變數 / `.env` > 終端互動輸入
+- **檔案路徑慣例**：所有相對路徑統一預設存取專案根目錄下的 `output/` 資料夾（例如 `-o nagoya.json` 實際會寫入 `output/nagoya.json`）
 
 ---
 
@@ -35,8 +39,10 @@ NOTION_DB_MANAGER_DATABASE_NAME=Tasks
 ### 全域共用參數 (所有子指令皆可使用)
 | 參數 | 說明 | 備註 |
 | :--- | :--- | :--- |
-| `--token` | Notion Integration Token | 若未提供，讀取 `.env` 或終端提示輸入 |
-| `--database-name` | 目標 Notion 資料庫名稱 | 若未提供，讀取 `.env` 或終端提示輸入 |
+| `--token` | Notion Integration Token | 若未提供，讀取 `.env` (`NOTION_DB_MANAGER_TOKEN`) 或終端提示輸入 |
+| `--database-name` | 目標 Notion 資料庫名稱 | 若未提供，讀取 `.env` (`NOTION_DB_MANAGER_DATABASE_NAME`) 或終端提示輸入 |
+| `--database-id` | 目標 Notion 資料庫 ID 或網址 | 可於 `.env` (`NOTION_DB_MANAGER_DATABASE_ID`) 定義，直接定位且免搜尋 |
+| `--page` | 所屬專案頁/父頁面名稱、ID 或網址 | 可於 `.env` (`NOTION_DB_MANAGER_PAGE`) 定義，用以排除同名資料庫歧義 |
 
 ---
 
@@ -74,6 +80,12 @@ NOTION_DB_MANAGER_DATABASE_NAME=Tasks
 ```bash
 # 匯出全部資料到 output/all.json
 notion-db-manager reader export-all -o all.json
+
+# 當存在多個同名資料庫時，指定所屬專案頁面 (亦可直接寫在 .env 的 NOTION_DB_MANAGER_PAGE)
+notion-db-manager reader export-all --database-name "行程安排" --page "名古屋自由行" -o nagoya.json
+
+# 直接透過 Database ID 或網址定位匯出 (免搜尋)
+notion-db-manager reader export-all --database-id "c1387d8998314c289ea9952467d3df13" -o nagoya.json
 
 # 只匯出 Name, Status, Score 三個欄位
 notion-db-manager reader export-columns --columns Name Status Score -o columns.json

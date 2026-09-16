@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from notion_db_manager.domain.models import Database, Page
+from notion_db_manager.domain.models import Database, DatabaseQuery, Page
 
 
 class NotionGateway(Protocol):
     """Abstraction for interacting with Notion databases and pages."""
+
+    def locate_database(self, query: DatabaseQuery) -> Database:
+        """Locate a Notion database matching the given query specification."""
+        ...
 
     def search_database_by_name(self, database_name: str) -> Database:
         """Locate a Notion database by its title."""

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from notion_db_manager.core.config import EnvLoader, Settings
 from notion_db_manager.core.exceptions import (
+    AmbiguousDatabaseError,
     ConfigurationError,
     DomainError,
     NDMError,
@@ -18,6 +19,7 @@ from notion_db_manager.core.types import (
 )
 
 __all__ = [
+    "AmbiguousDatabaseError",
     "ConfigurationError",
     "DomainError",
     "EnvLoader",
