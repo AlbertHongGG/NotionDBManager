@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 
 from notion_db_manager.application.commands.enrich_photos import EnrichPlacePhotosCommand
 from notion_db_manager.cli.handlers.base import ActionHandler
-from notion_db_manager.cli.prompt import resolve_concurrency, resolve_settings
-from notion_db_manager.core.config import EnvLoader
+from notion_db_manager.cli.prompt import resolve_settings
+from notion_db_manager.cli.runner import AsyncCommandRunner
+from notion_db_manager.core.config import ConfigurationResolver
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models import DatabaseQuery, PageReference
 from notion_db_manager.domain.places import PhotoEnrichSummary, PlaceItem
@@ -45,17 +45,15 @@ class EnrichHandler(ActionHandler):
             pages = gateway.get_ordered_pages(database)
             db_name = database.name
 
-        api_key = getattr(args, "google_api_key", None) or EnvLoader.get_google_map_api()
-        provider = PhotoProviderFactory.create(
-            provider_type=args.provider,
-            google_api_key=api_key,
+        provider_name = getattr(args, "provider", "playwright") or "playwright"
+        default_concurrency = PhotoProviderFactory.get_default_concurrency(provider_name)
+        enrich_config = ConfigurationResolver.resolve_enrich_config(
+            args,
+            default_concurrency=default_concurrency,
         )
-        photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
-        clean_directory = not getattr(args, "no_clean", False)
 
-        # Resolve concurrency with precedence: CLI flag > NOTION_DB_MANAGER_CONCURRENCY > provider default
-        default_concurrency = 8 if args.provider == "google" else 3
-        concurrency = resolve_concurrency(args, default=default_concurrency)
+        provider = PhotoProviderFactory.create_from_config(enrich_config)
+        photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
 
         def on_progress(idx: int, total: int, item: PlaceItem, status: str) -> None:
             cat_str = f" [{', '.join(item.categories)}]" if item.categories else ""
@@ -72,23 +70,24 @@ class EnrichHandler(ActionHandler):
                 return await cmd.execute(
                     database_name=db_name,
                     pages=pages,
-                    categories=args.categories,
-                    provider_name=args.provider,
-                    clean_directory=clean_directory,
-                    concurrency=concurrency,
+                    categories=enrich_config.categories,
+                    provider_name=enrich_config.provider,
+                    clean_directory=enrich_config.clean_directory,
+                    concurrency=enrich_config.concurrency,
                 )
             finally:
                 await provider.close()
 
-        summary = asyncio.run(_run())
+        summary = AsyncCommandRunner.run(_run)
 
         clean_db = sanitize_filename(db_name)
         print("\n" + "=" * 55)
-        print(f"圖片獲取完成！總計 {summary.total_items} 筆項目（並發數: {concurrency}）：")
+        print(f"圖片獲取完成！總計 {summary.total_items} 筆項目（並發數: {enrich_config.concurrency}）：")
         print(f"  - 成功下載: {summary.success_count} 筆")
         print(f"  - 略過項目: {summary.skipped_count} 筆")
         print(f"  - 失敗項目: {summary.failed_count} 筆")
         print(f"圖片儲存目錄: output/images/{clean_db}/")
         print(f"詳細報告檔案: output/images/{clean_db}/manifest.json")
         print("=" * 55)
+
 

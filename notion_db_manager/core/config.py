@@ -16,21 +16,41 @@ ENV_CONCURRENCY_KEY = "NOTION_DB_MANAGER_CONCURRENCY"
 
 
 @dataclass(frozen=True, slots=True)
-class Settings:
+class NotionConnectionConfig:
+    """Configuration required to connect and interact with Notion databases."""
+
     token: str
     database_name: str | None = None
     database_id: str | None = None
     page: str | None = None
-    google_map_api: str | None = None
-    concurrency: int | None = None
 
     def __post_init__(self) -> None:
         if not self.token or not self.token.strip():
             raise ConfigurationError("Notion API Token 不能為空")
         if not self.database_name and not self.database_id:
             raise ConfigurationError("必須提供 Notion Database Name 或 Database ID (可由參數或 .env 設定)")
-        if self.concurrency is not None and self.concurrency < 1:
-            raise ConfigurationError("NOTION_DB_MANAGER_CONCURRENCY 必須為大於或等於 1 的正整數")
+
+
+# Alias Settings to NotionConnectionConfig for domain compatibility
+Settings = NotionConnectionConfig
+
+
+@dataclass(frozen=True, slots=True)
+class PhotoEnrichConfig:
+    """Configuration required for photo enrichment tasks."""
+
+    provider: str
+    concurrency: int
+    categories: list[str] | None = None
+    clean_directory: bool = True
+    google_api_key: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.provider or not self.provider.strip():
+            raise ConfigurationError("照片提供者 (provider) 不能為空")
+        if self.concurrency < 1:
+            raise ConfigurationError(f"並發數量 (concurrency) 必須為大於或等於 1 的正整數，收到: {self.concurrency}")
+
 
 
 class EnvLoader:
@@ -119,4 +139,62 @@ class EnvLoader:
         if val_int < 1:
             raise ConfigurationError(f"環境變數 {ENV_CONCURRENCY_KEY} 必須為大於或等於 1 的正整數，收到: {val_int}")
         return val_int
+
+
+class ConfigurationResolver:
+    """Unified resolver managing configuration hierarchy (CLI args > .env > Domain defaults)."""
+
+    @classmethod
+    def resolve_notion_config(cls, args: Any, env_path: Path | None = None) -> NotionConnectionConfig:
+        """Resolves Notion connection parameters without interactive prompt."""
+        EnvLoader.load(env_path)
+        token = getattr(args, "token", None) or EnvLoader.get_token() or ""
+        database_id = getattr(args, "database_id", None) or EnvLoader.get_database_id()
+        database_name = getattr(args, "database_name", None) or EnvLoader.get_database_name()
+        page = getattr(args, "page", None) or EnvLoader.get_page()
+        return NotionConnectionConfig(
+            token=token,
+            database_name=database_name,
+            database_id=database_id,
+            page=page,
+        )
+
+    @classmethod
+    def resolve_enrich_config(
+        cls,
+        args: Any,
+        default_concurrency: int = 3,
+        env_path: Path | None = None,
+    ) -> PhotoEnrichConfig:
+        """Resolves photo enrichment parameters."""
+        EnvLoader.load(env_path)
+
+        provider = getattr(args, "provider", "playwright") or "playwright"
+
+        # Concurrency resolution: CLI -> .env -> Provider default
+        cli_concurrency = getattr(args, "concurrency", None)
+        if cli_concurrency is not None:
+            if cli_concurrency < 1:
+                from notion_db_manager.core.exceptions import ValidationError
+                raise ValidationError(f"--concurrency 必須為大於或等於 1 的正整數，收到: {cli_concurrency}")
+            concurrency = cli_concurrency
+        else:
+            env_concurrency = EnvLoader.get_concurrency()
+            concurrency = env_concurrency if env_concurrency is not None else default_concurrency
+
+        # Google API Key resolution: CLI -> .env
+        google_api_key = getattr(args, "google_api_key", None) or EnvLoader.get_google_map_api()
+
+        categories = getattr(args, "categories", None)
+        clean_directory = not getattr(args, "no_clean", False)
+
+        return PhotoEnrichConfig(
+            provider=provider,
+            concurrency=concurrency,
+            categories=categories,
+            clean_directory=clean_directory,
+            google_api_key=google_api_key,
+        )
+
+
 

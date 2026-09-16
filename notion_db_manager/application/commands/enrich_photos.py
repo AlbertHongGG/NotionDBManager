@@ -53,82 +53,107 @@ class EnrichPlacePhotosCommand:
         allowed_cats = set(categories) if categories else None
         total_count = len(items)
 
-        summary = PhotoEnrichSummary(
-            database_name=database_name,
-            provider=provider_name,
-            total_items=total_count,
-            processed_count=0,
-            skipped_count=0,
-            success_count=0,
-            failed_count=0,
-            items=[],
-        )
+        if total_count == 0:
+            empty_summary = PhotoEnrichSummary(
+                database_name=database_name,
+                provider=provider_name,
+                total_items=0,
+                processed_count=0,
+                skipped_count=0,
+                success_count=0,
+                failed_count=0,
+                items=[],
+            )
+            self.storage.save_manifest(database_name, empty_summary)
+            return empty_summary
 
-        semaphore = asyncio.Semaphore(concurrency)
-        results: list[EnrichItemResult] = []
-        lock = asyncio.Lock()
+        # Pre-allocate results array to guarantee exact original index ordering without locks
+        results: list[EnrichItemResult | None] = [None] * total_count
 
-        async def process_item(item: PlaceItem) -> None:
-            if not item.is_target(allowed_cats):
-                self._report(item.index, total_count, item, "略過 (不符類別篩選)")
-                async with lock:
-                    summary.skipped_count += 1
-                    results.append(
-                        EnrichItemResult(
+        # Populate FIFO work queue
+        queue: asyncio.Queue[tuple[int, PlaceItem]] = asyncio.Queue()
+        for idx, item in enumerate(items):
+            queue.put_nowait((idx, item))
+
+        async def worker() -> None:
+            while not queue.empty():
+                try:
+                    slot_idx, item = queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+
+                try:
+                    if not item.is_target(allowed_cats):
+                        self._report(item.index, total_count, item, "略過 (不符類別篩選)")
+                        results[slot_idx] = EnrichItemResult(
                             index=item.index,
                             page_id=item.page_id,
                             name=item.name,
                             status="skipped",
                             categories=item.categories,
                         )
-                    )
-                return
+                        continue
 
-            async with semaphore:
-                self._report(item.index, total_count, item, "獲取圖片中...")
+                    self._report(item.index, total_count, item, "獲取圖片中...")
 
-                # Fail-fast: Provider errors propagate directly and terminate gather
-                photo = await self.provider.fetch_photo(item)
+                    # Fail-fast: Provider errors propagate directly and terminate worker pool
+                    photo = await self.provider.fetch_photo(item)
 
-                if photo is None:
-                    self._report(item.index, total_count, item, "無可用照片")
-                    async with lock:
-                        summary.processed_count += 1
-                        summary.failed_count += 1
-                        results.append(
-                            EnrichItemResult(
-                                index=item.index,
-                                page_id=item.page_id,
-                                name=item.name,
-                                status="failed",
-                                categories=item.categories,
-                                error_message="找不到對應的代表相片",
-                            )
+                    if photo is None:
+                        self._report(item.index, total_count, item, "無可用照片")
+                        results[slot_idx] = EnrichItemResult(
+                            index=item.index,
+                            page_id=item.page_id,
+                            name=item.name,
+                            status="failed",
+                            categories=item.categories,
+                            error_message="找不到對應的代表相片",
                         )
-                else:
-                    saved_path = self.storage.save_photo(database_name, item, photo)
-                    self._report(item.index, total_count, item, f"已儲存 -> {saved_path.name}")
-                    async with lock:
-                        summary.processed_count += 1
-                        summary.success_count += 1
-                        results.append(
-                            EnrichItemResult(
-                                index=item.index,
-                                page_id=item.page_id,
-                                name=item.name,
-                                status="success",
-                                categories=item.categories,
-                                local_path=str(saved_path),
-                                source_url=photo.source_url,
-                            )
+                    else:
+                        saved_path = self.storage.save_photo(database_name, item, photo)
+                        self._report(item.index, total_count, item, f"已儲存 -> {saved_path.name}")
+                        results[slot_idx] = EnrichItemResult(
+                            index=item.index,
+                            page_id=item.page_id,
+                            name=item.name,
+                            status="success",
+                            categories=item.categories,
+                            local_path=str(saved_path),
+                            source_url=photo.source_url,
                         )
+                finally:
+                    queue.task_done()
 
-        # Launch all tasks bounded by semaphore
-        await asyncio.gather(*(process_item(item) for item in items))
+        # Spawn exactly N workers (N = min(concurrency, total_count))
+        num_workers = min(concurrency, total_count)
+        worker_tasks = [asyncio.create_task(worker()) for _ in range(num_workers)]
 
-        # Sort results strictly by original Notion item index
-        results.sort(key=lambda r: r.index)
-        summary.items = results
+        try:
+            await asyncio.gather(*worker_tasks)
+        except Exception:
+            # Fail-fast: cancel all remaining workers immediately
+            for task in worker_tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*worker_tasks, return_exceptions=True)
+            raise
+
+        final_items: list[EnrichItemResult] = [r for r in results if r is not None]
+        success_count = sum(1 for r in final_items if r.status == "success")
+        skipped_count = sum(1 for r in final_items if r.status == "skipped")
+        failed_count = sum(1 for r in final_items if r.status == "failed")
+        processed_count = success_count + failed_count
+
+        summary = PhotoEnrichSummary(
+            database_name=database_name,
+            provider=provider_name,
+            total_items=total_count,
+            processed_count=processed_count,
+            skipped_count=skipped_count,
+            success_count=success_count,
+            failed_count=failed_count,
+            items=final_items,
+        )
 
         self.storage.save_manifest(database_name, summary)
         return summary
@@ -153,4 +178,5 @@ class EnrichPlacePhotosCommand:
                 concurrency=concurrency,
             )
         )
+
 

@@ -8,9 +8,21 @@ from notion_db_manager.core.exceptions import NDMError
 
 
 def main() -> None:
+    if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     dispatcher = Dispatcher()
     parser = build_parser()
     args = parser.parse_args()
+
 
     try:
         dispatcher.dispatch(args)

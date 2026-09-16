@@ -280,3 +280,54 @@ def test_cli_enrich_photos_env_concurrency(
     manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
     assert manifest_file.is_file()
 
+
+def test_cli_enrich_photos_concurrency_cli_override(
+    tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    # Even if env is 8, CLI flag --concurrency 1 must take precedence
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "8")
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "enrich",
+            "photos",
+            "--input",
+            str(sample_export_json),
+            "--provider",
+            "google",
+            "--google-api-key",
+            "AIzaSyFakeKey123",
+            "--concurrency",
+            "1",
+        ],
+    )
+
+    search_response = MagicMock()
+    search_response.status_code = 200
+    search_response.json.return_value = {
+        "places": [
+            {
+                "id": "place_1",
+                "displayName": {"text": "手長足長像"},
+                "photos": [{"name": "places/p1/photos/ph1", "widthPx": 1200, "heightPx": 800}],
+            }
+        ]
+    }
+
+    media_response = MagicMock()
+    media_response.status_code = 200
+    media_response.content = b"fake-image-bytes"
+    media_response.headers = {"Content-Type": "image/jpeg"}
+    media_response.url = "https://places.googleapis.com/v1/places/p1/photos/ph1/media"
+
+    with patch.object(httpx.AsyncClient, "post", new=AsyncMock(return_value=search_response)), patch.object(
+        httpx.AsyncClient, "get", new=AsyncMock(return_value=media_response)
+    ):
+        main()
+
+    manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
+    assert manifest_file.is_file()
+
+

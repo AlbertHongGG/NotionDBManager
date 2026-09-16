@@ -129,3 +129,52 @@ def test_enrich_photos_fail_fast_on_provider_error(mock_storage: MagicMock) -> N
     # Since it failed fast, nothing was saved
     assert mock_storage.save_photo.call_count == 0
 
+
+def test_enrich_photos_worker_pool_concurrency_and_ordering(mock_storage: MagicMock) -> None:
+    import asyncio
+
+    provider = MagicMock(spec=PlacePhotoProvider)
+
+    # Simulate variable latency: item 1 takes 0.05s, item 2 takes 0.01s (finishes earlier)
+    async def delayed_fetch(item: PlaceItem) -> PlacePhoto:
+        delay = 0.05 if item.index == 1 else 0.01
+        await asyncio.sleep(delay)
+        return PlacePhoto(
+            data=f"img_{item.index}".encode(),
+            mime_type="image/jpeg",
+            extension="jpg",
+            source_url=f"https://example.com/img{item.index}.jpg",
+        )
+
+    provider.fetch_photo = AsyncMock(side_effect=delayed_fetch)
+
+    pages = [
+        Page(
+            id=f"p{i}",
+            index=i,
+            properties={"地點": TitleProperty(f"地點 {i}")},
+        )
+        for i in range(1, 5)
+    ]
+
+    cmd = EnrichPlacePhotosCommand(provider, mock_storage)
+    summary = cmd.execute_sync("行程安排", pages, provider_name="google", concurrency=4)
+
+    assert summary.total_items == 4
+    assert summary.success_count == 4
+    # Ensure final results are in exact index order despite variable completion time
+    assert [r.index for r in summary.items] == [1, 2, 3, 4]
+    assert [r.name for r in summary.items] == ["地點 1", "地點 2", "地點 3", "地點 4"]
+
+
+def test_enrich_photos_empty_pages(mock_storage: MagicMock) -> None:
+    provider = MagicMock(spec=PlacePhotoProvider)
+    cmd = EnrichPlacePhotosCommand(provider, mock_storage)
+    summary = cmd.execute_sync("行程安排", [], provider_name="google", concurrency=2)
+
+    assert summary.total_items == 0
+    assert summary.processed_count == 0
+    assert summary.items == []
+    assert mock_storage.save_manifest.call_count == 1
+
+

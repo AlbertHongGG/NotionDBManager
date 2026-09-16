@@ -17,6 +17,8 @@ class GooglePlacesPhotoProvider(PlacePhotoProvider):
 
     SEARCH_ENDPOINT = "https://places.googleapis.com/v1/places:searchText"
     MEDIA_ENDPOINT_TEMPLATE = "https://places.googleapis.com/v1/{name}/media"
+    DEFAULT_CONCURRENCY = 8
+
 
     def __init__(self, api_key: str, timeout: float = 15.0) -> None:
         if not api_key or not api_key.strip():

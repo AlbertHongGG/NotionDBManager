@@ -31,6 +31,28 @@ def test_photo_provider_factory_invalid() -> None:
         PhotoProviderFactory.create("unknown_provider")
 
 
+def test_photo_provider_factory_default_concurrency() -> None:
+    assert PhotoProviderFactory.get_default_concurrency("playwright") == 3
+    assert PhotoProviderFactory.get_default_concurrency("google") == 8
+    assert PhotoProviderFactory.get_default_concurrency(PhotoProviderType.PLAYWRIGHT) == 3
+    assert PhotoProviderFactory.get_default_concurrency(PhotoProviderType.GOOGLE) == 8
+    assert PhotoProviderFactory.get_default_concurrency("unknown") == 1
+
+
+def test_photo_provider_factory_create_from_config() -> None:
+    from notion_db_manager.core.config import PhotoEnrichConfig
+
+    cfg_google = PhotoEnrichConfig(provider="google", concurrency=5, google_api_key="AIzaSyKey")
+    provider = PhotoProviderFactory.create_from_config(cfg_google)
+    assert isinstance(provider, GooglePlacesPhotoProvider)
+    assert provider.api_key == "AIzaSyKey"
+
+    cfg_pw = PhotoEnrichConfig(provider="playwright", concurrency=2)
+    provider_pw = PhotoProviderFactory.create_from_config(cfg_pw)
+    assert isinstance(provider_pw, PlaywrightPhotoProvider)
+
+
+
 def test_google_places_photo_provider_success() -> None:
     provider = GooglePlacesPhotoProvider(api_key="AIzaSyTest")
     item = PlaceItem(page_id="p1", index=1, name="中部電力未來塔")

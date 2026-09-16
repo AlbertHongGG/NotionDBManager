@@ -22,6 +22,8 @@ class PlacePhotoProvider(Protocol):
         ...
 
 
+
+
 class PhotoStorage(Protocol):
     """Abstraction for persisting place photos and manifest metadata."""
 

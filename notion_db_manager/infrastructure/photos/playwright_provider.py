@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import urllib.parse
 from typing import Any
 
@@ -17,7 +18,10 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
     PhotoProviderError.
     """
 
+    DEFAULT_CONCURRENCY = 3
+
     def __init__(self, headless: bool = True, timeout: float = 20.0) -> None:
+
         self.headless = headless
         self.timeout = timeout
         self.timeout_ms = int(timeout * 1000)
@@ -110,6 +114,9 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
             except Exception:
                 pass
             self._playwright = None
+            # Windows ProactorEventLoop named pipes require a brief event loop
+            # turn to process pending IOCP close notifications before loop destruction.
+            await asyncio.sleep(0.05)
 
     async def __aenter__(self) -> PlaywrightPhotoProvider:
         return self
