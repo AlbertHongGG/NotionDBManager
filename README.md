@@ -51,9 +51,9 @@ NOTION_DB_MANAGER_PAGE=名古屋自由行
 
 | 指令 | 說明 | 必要與可選參數 |
 | :--- | :--- | :--- |
-| `export-all` | 匯出全部資料列與全部欄位 | `-o, --output <PATH>` [必要]: 輸出 JSON 檔案路徑 |
-| `export-columns` | 只匯出指定欄位 | `--columns <COL1> <COL2>...` [必要]: 欲匯出的欄位名稱<br>`-o, --output <PATH>` [必要]: 輸出 JSON 檔案路徑 |
-| `export-rows` | 只匯出指定列索引 | `--rows <EXPR>` [必要]: 列索引表達式 (如 `1,3,5-7`)<br>`-o, --output <PATH>` [必要]: 輸出 JSON 檔案路徑 |
+| `export-all` | 匯出全部資料列與全部欄位 | `-o, --output <PATH>` [選填，預設 `yyyymmdd_hhmmss_export-all.json`]: 輸出 JSON 檔案路徑 |
+| `export-columns` | 只匯出指定欄位 | `--columns <COL1> <COL2>...` [必要]: 欲匯出的欄位名稱<br>`-o, --output <PATH>` [選填，預設 `yyyymmdd_hhmmss_export-columns.json`]: 輸出 JSON 檔案路徑 |
+| `export-rows` | 只匯出指定列索引 | `--rows <EXPR>` [必要]: 列索引表達式 (如 `1,3,5-7`)<br>`-o, --output <PATH>` [選填，預設 `yyyymmdd_hhmmss_export-rows.json`]: 輸出 JSON 檔案路徑 |
 
 ---
 
@@ -78,19 +78,22 @@ NOTION_DB_MANAGER_PAGE=名古屋自由行
 
 ### 匯出 (Reader)
 ```bash
-# 匯出全部資料到 output/all.json
+# 匯出全部資料 (使用預設命名自動寫入 output/yyyymmdd_hhmmss_export-all.json)
+notion-db-manager reader export-all
+
+# 匯出全部資料到自訂路徑 (output/all.json)
 notion-db-manager reader export-all -o all.json
 
 # 當存在多個同名資料庫時，指定所屬專案頁面 (亦可直接寫在 .env 的 NOTION_DB_MANAGER_PAGE)
-notion-db-manager reader export-all --database-name "行程安排" --page "名古屋自由行" -o nagoya.json
+notion-db-manager reader export-all --database-name "行程安排" --page "名古屋自由行"
 
 # 直接透過 Database ID 或網址定位匯出 (免搜尋)
-notion-db-manager reader export-all --database-id "c1387d8998314c289ea9952467d3df13" -o nagoya.json
+notion-db-manager reader export-all --database-id "c1387d8998314c289ea9952467d3df13"
 
-# 只匯出 Name, Status, Score 三個欄位
-notion-db-manager reader export-columns --columns Name Status Score -o columns.json
+# 只匯出 Name, Status, Score 三個欄位 (不指定 -o 則自動產生 output/yyyymmdd_hhmmss_export-columns.json)
+notion-db-manager reader export-columns --columns Name Status Score
 
-# 只匯出第 1、第 3 以及第 5 至 7 列
+# 只匯出第 1、第 3 以及第 5 至 7 列到自訂檔案
 notion-db-manager reader export-rows --rows 1,3,5-7 -o rows.json
 ```
 

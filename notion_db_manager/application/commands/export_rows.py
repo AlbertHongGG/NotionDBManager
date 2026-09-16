@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from notion_db_manager.application.commands.base import BaseCommand, CommandResult
+from notion_db_manager.application.interfaces.document_storage import DocumentStorage
+from notion_db_manager.application.interfaces.notion_gateway import NotionGateway
+from notion_db_manager.application.naming import ExportNamingPolicy, TimestampedNamingPolicy
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models import Database, Document, DocumentMeta, Page
 from notion_db_manager.domain.validation import parse_row_indices
@@ -11,11 +14,22 @@ from notion_db_manager.domain.validation import parse_row_indices
 class ExportRowsCommand(BaseCommand):
     """Use case for exporting only designated row numbers/ranges from a Notion database."""
 
+    ACTION_NAME = "export-rows"
+
+    def __init__(
+        self,
+        gateway: NotionGateway,
+        storage: DocumentStorage,
+        naming_policy: ExportNamingPolicy | None = None,
+    ) -> None:
+        super().__init__(gateway, storage)
+        self.naming_policy = naming_policy or TimestampedNamingPolicy()
+
     def execute(
         self,
         database: Database,
-        output_path: str,
         row_expression: str,
+        output_path: str | None = None,
         **kwargs: Any,
     ) -> CommandResult:
         selected_rows = parse_row_indices(row_expression)
@@ -38,7 +52,8 @@ class ExportRowsCommand(BaseCommand):
             order_property=database.order_property_name,
         )
         document = Document(meta=meta, pages=selected_pages)
-        written_path = self.storage.write(output_path, document)
+        target_path_str = output_path or self.naming_policy.generate(self.ACTION_NAME)
+        written_path = self.storage.write(target_path_str, document)
 
         return CommandResult(
             affected_count=len(selected_pages),

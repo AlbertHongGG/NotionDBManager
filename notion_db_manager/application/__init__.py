@@ -11,6 +11,7 @@ from notion_db_manager.application.commands import (
     WriteRowsCommand,
 )
 from notion_db_manager.application.interfaces import DocumentStorage, NotionGateway
+from notion_db_manager.application.naming import ExportNamingPolicy, TimestampedNamingPolicy
 
 __all__ = [
     "BaseCommand",
@@ -18,9 +19,11 @@ __all__ = [
     "DocumentStorage",
     "ExportAllCommand",
     "ExportColumnsCommand",
+    "ExportNamingPolicy",
     "ExportRowsCommand",
     "ImportFullCommand",
     "NotionGateway",
+    "TimestampedNamingPolicy",
     "WriteColumnsCommand",
     "WriteRowsCommand",
 ]

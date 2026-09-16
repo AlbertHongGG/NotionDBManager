@@ -21,19 +21,19 @@ def build_parser() -> argparse.ArgumentParser:
     # reader export-all
     export_all = reader_subparsers.add_parser("export-all", help="Export all rows and all columns")
     add_common_database_args(export_all)
-    export_all.add_argument("-o", "--output", required=True, help="Output JSON file path")
+    export_all.add_argument("-o", "--output", default=None, help="Output JSON file path (defaults to yyyymmdd_hhmmss_export-all.json)")
 
     # reader export-columns
     export_columns = reader_subparsers.add_parser("export-columns", help="Export only selected columns")
     add_common_database_args(export_columns)
     export_columns.add_argument("--columns", nargs="+", required=True, help="Column names to export")
-    export_columns.add_argument("-o", "--output", required=True, help="Output JSON file path")
+    export_columns.add_argument("-o", "--output", default=None, help="Output JSON file path (defaults to yyyymmdd_hhmmss_export-columns.json)")
 
     # reader export-rows
     export_rows = reader_subparsers.add_parser("export-rows", help="Export only selected row indexes")
     add_common_database_args(export_rows)
     export_rows.add_argument("--rows", required=True, help="Row indexes, e.g. 1,3,5-7")
-    export_rows.add_argument("-o", "--output", required=True, help="Output JSON file path")
+    export_rows.add_argument("-o", "--output", default=None, help="Output JSON file path (defaults to yyyymmdd_hhmmss_export-rows.json)")
 
     # Writer category
     writer = subparsers.add_parser("writer", help="Writer operations")

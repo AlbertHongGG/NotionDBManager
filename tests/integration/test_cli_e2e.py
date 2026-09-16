@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import pytest
@@ -53,6 +54,41 @@ def test_cli_export_all(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_ga
         main()
 
     assert (tmp_path / "output.json").is_file()
+
+
+def test_cli_export_default_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_gateway_db: Database) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "reader",
+            "export-all",
+            "--token",
+            "secret_test",
+            "--database-name",
+            "MockTasks",
+        ],
+    )
+
+    with (
+        patch("notion_db_manager.cli.dispatch.NotionHttpClient"),
+        patch("notion_db_manager.cli.dispatch.NotionGatewayImpl") as mock_gw_cls,
+    ):
+        mock_gw = mock_gw_cls.return_value
+        mock_gw.locate_database.return_value = mock_gateway_db
+        mock_gw.ensure_order_property.return_value = mock_gateway_db
+        mock_gw.get_ordered_pages.return_value = [
+            Page(index=1, properties={"Name": TitleProperty("Item 1")}, id="p1")
+        ]
+
+        main()
+
+    output_dir = tmp_path / "output"
+    assert output_dir.is_dir()
+    files = list(output_dir.glob("*.json"))
+    assert len(files) == 1
+    assert re.match(r"^\d{8}_\d{6}_export-all\.json$", files[0].name)
 
 
 def test_cli_export_with_page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mock_gateway_db: Database) -> None:

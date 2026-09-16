@@ -3,13 +3,27 @@ from __future__ import annotations
 from typing import Any
 
 from notion_db_manager.application.commands.base import BaseCommand, CommandResult
+from notion_db_manager.application.interfaces.document_storage import DocumentStorage
+from notion_db_manager.application.interfaces.notion_gateway import NotionGateway
+from notion_db_manager.application.naming import ExportNamingPolicy, TimestampedNamingPolicy
 from notion_db_manager.domain.models import Database, Document, DocumentMeta
 
 
 class ExportAllCommand(BaseCommand):
     """Use case for exporting all rows and properties from a Notion database."""
 
-    def execute(self, database: Database, output_path: str, **kwargs: Any) -> CommandResult:
+    ACTION_NAME = "export-all"
+
+    def __init__(
+        self,
+        gateway: NotionGateway,
+        storage: DocumentStorage,
+        naming_policy: ExportNamingPolicy | None = None,
+    ) -> None:
+        super().__init__(gateway, storage)
+        self.naming_policy = naming_policy or TimestampedNamingPolicy()
+
+    def execute(self, database: Database, output_path: str | None = None, **kwargs: Any) -> CommandResult:
         pages = self.gateway.get_ordered_pages(database)
         # Ensure sequential indices
         for idx, page in enumerate(pages, start=1):
@@ -22,7 +36,8 @@ class ExportAllCommand(BaseCommand):
             order_property=database.order_property_name,
         )
         document = Document(meta=meta, pages=pages)
-        written_path = self.storage.write(output_path, document)
+        target_path_str = output_path or self.naming_policy.generate(self.ACTION_NAME)
+        written_path = self.storage.write(target_path_str, document)
 
         return CommandResult(
             affected_count=len(pages),
