@@ -28,6 +28,7 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
         self.timeout_ms = int(timeout * 1000)
         self._playwright: Any = None
         self._browser: Any = None
+        self._context: Any = None
 
     async def _ensure_browser(self) -> Any:
         if self._browser is not None:
@@ -50,12 +51,27 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
         except Exception as exc:
             raise PhotoProviderError(f"啟動 Playwright 瀏覽器失敗: {exc}") from exc
 
-    async def fetch_photo(self, place: PlaceItem) -> PlacePhoto | None:
+    async def _ensure_context(self) -> Any:
+        """Maintains a persistent BrowserContext across tasks to reuse HTTP/JS cache while isolating tabs."""
+        if self._context is not None:
+            return self._context
+
         browser = await self._ensure_browser()
-        page = await browser.new_page(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            locale="zh-TW",
-        )
+        if hasattr(browser, "new_context"):
+            try:
+                self._context = await browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    locale="zh-TW",
+                    viewport={"width": 1280, "height": 800},
+                )
+                return self._context
+            except Exception:
+                pass
+        return browser
+
+    async def fetch_photo(self, place: PlaceItem) -> PlacePhoto | None:
+        ctx = await self._ensure_context()
+        page = await ctx.new_page()
 
         try:
             target_url = self._resolve_target_url(place)
@@ -92,7 +108,6 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
             # Check if this is a fatal browser crash
             if "Target closed" in str(exc) or "browser has been closed" in str(exc):
                 raise PhotoProviderError(f"Playwright 瀏覽器異常終止: {exc}") from exc
-            # Otherwise return None for unresolvable locations
             return None
         finally:
             try:
@@ -101,7 +116,14 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
                 pass
 
     async def close(self) -> None:
-        """Closes browser instances and playwright processes cleanly."""
+        """Closes browser context, instances and playwright processes cleanly."""
+        if self._context:
+            try:
+                await self._context.close()
+            except Exception:
+                pass
+            self._context = None
+
         if self._browser:
             try:
                 await self._browser.close()

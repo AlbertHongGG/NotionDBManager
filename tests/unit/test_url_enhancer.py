@@ -18,6 +18,9 @@ def test_is_valid_place_photo() -> None:
     assert enhancer.is_valid_place_photo(
         "https://lh3.googleusercontent.com/place-photos/AG9NLjBBt_rn=s4800-w1600"
     ) is True
+    assert enhancer.is_valid_place_photo(
+        "https://lh3.googleusercontent.com/grass-cs/ACvplmM0suE8GfA3=w426-h240-k-no"
+    ) is True
 
     # User review and profile avatars (Must be rejected!)
     assert enhancer.is_valid_place_photo(

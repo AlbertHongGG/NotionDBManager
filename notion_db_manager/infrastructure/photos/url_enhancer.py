@@ -10,7 +10,7 @@ class GooglePhotoUrlEnhancer:
     AVATAR_PATTERNS = ("/a/", "/a-/", "/ogw/")
 
     # Known place photo path segments
-    PLACE_PHOTO_PATTERNS = ("/gps-cs-s/", "/p/", "/place-photos/")
+    PLACE_PHOTO_PATTERNS = ("/gps-cs-s/", "/grass-cs/", "/p/", "/place-photos/")
 
     @classmethod
     def is_valid_place_photo(cls, url: str | None) -> bool:
