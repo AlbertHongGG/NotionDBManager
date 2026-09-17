@@ -2,7 +2,8 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from notion_db_manager.domain.places import PlaceItem
+from notion_db_manager.domain.travel.places import PlaceItem
+
 from notion_db_manager.infrastructure.photos.playwright_provider import PlaywrightPhotoProvider
 
 

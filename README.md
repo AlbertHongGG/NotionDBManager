@@ -28,8 +28,11 @@ NOTION_DB_MANAGER_PAGE=名古屋自由行
 # 亦可直接以 Database ID/網址精準定位 (完全免搜尋)
 # NOTION_DB_MANAGER_DATABASE_ID=c1387d89-9831-4c28-9ea9-952467d3df13
 
-# [選填] Google Places API 金鑰 (用於 enrich photos 指令)
+# [選填] Google Places API 金鑰 (用於 travel enrich-photos 指令)
 GOOGLE_MAP_API=AIzaSy_xxx
+
+# [選填] 並發數量 (預設: playwright=3, google=8)
+NOTION_DB_MANAGER_CONCURRENCY=3
 ```
 
 - **優先順序**：命令列參數 > 環境變數 / `.env` > 終端互動輸入
@@ -78,12 +81,12 @@ GOOGLE_MAP_API=AIzaSy_xxx
 
 ---
 
-### Enrich 指令群 (`notion-db-manager enrich <action>`)
-用於自動化強化資料（如根據地點名稱與導航自動抓取代表照片）。
+### Travel 範本指令群 (`notion-db-manager travel <action>`)
+專為 Travel Notion Template 定制的領域功能（支援地點、日文地點、屬性標籤、導航等欄位識別）。
 
 | 指令 | 說明 | 必要與可選參數 |
 | :--- | :--- | :--- |
-| `photos` | 自動為地點獲取代表相片並儲存至本地 | `--provider <playwright\|google>` [選填，預設 `playwright`]: 爬蟲或官方 Places API<br>`--input <PATH>` [選填]: 讀取本機匯出 JSON (如未提供則即時從 Notion 取得)<br>`--categories <CAT1> <CAT2>...` [選填]: 篩選特定類別 (若未指定則處理全部，包含交通) |
+| `enrich-photos` | 自動為旅遊地點獲取代表相片並儲存至本地 | `--provider <playwright\|google>` [選填，預設 `playwright`]: 爬蟲或官方 Places API<br>`--input <PATH>` [選填]: 讀取本機匯出 JSON (如未提供則即時從 Notion 取得)<br>`--categories <CAT1> <CAT2>...` [選填]: 篩選特定類別 (若未指定則處理全部，包含交通)<br>`-c, --concurrency <INT>` [選填]: 並發抓取數量 (預設: playwright=3, google=8，亦可透過 `NOTION_DB_MANAGER_CONCURRENCY` 設定)<br>`--no-clean` [選填]: 執行前不清除輸出目錄中的舊圖<br>`--google-api-key <KEY>` [選填]: Google Cloud Places API 金鑰 |
 
 ---
 
@@ -128,19 +131,19 @@ notion-db-manager writer write-rows --input rows.json --mode insert --index 2
 notion-db-manager writer write-rows --input rows.json --mode overwrite --index 5
 ```
 
-### 圖片獲取 (Enrich)
+### 旅遊照片獲取 (Travel)
 ```bash
 # 1. 預設使用 Playwright 爬蟲 (抓取所有項目包含交通，並寫入 output/images/<資料庫名稱>/)
-notion-db-manager enrich photos
+notion-db-manager travel enrich-photos
 
 # 2. 使用 Google Places API (讀取 .env 中的 GOOGLE_MAP_API，極速下載官方原圖)
-notion-db-manager enrich photos --provider google
+notion-db-manager travel enrich-photos --provider google
 
 # 3. 指定本機已匯出的 JSON 檔 (離線模式，免呼叫 Notion API)
-notion-db-manager enrich photos --input output/20260917_045325_export-all.json --provider google
+notion-db-manager travel enrich-photos --input output/20260917_045325_export-all.json --provider google
 
-# 4. 只抓取特定標籤 (如僅限景點與用餐)
-notion-db-manager enrich photos --categories 景點 用餐 --provider google
+# 4. 只抓取特定標籤 (如僅限景點與用餐) 並設定並發數為 4
+notion-db-manager travel enrich-photos --categories 景點 用餐 --provider google --concurrency 4
 ```
 
 ---

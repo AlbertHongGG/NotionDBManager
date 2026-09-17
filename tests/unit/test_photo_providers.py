@@ -3,7 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from notion_db_manager.core.exceptions import ConfigurationError, PhotoProviderError, ValidationError
-from notion_db_manager.domain.places import PhotoProviderType, PlaceItem
+from notion_db_manager.domain.travel.places import PhotoProviderType, PlaceItem
+
 from notion_db_manager.infrastructure.photos.factory import PhotoProviderFactory
 from notion_db_manager.infrastructure.photos.google_places import GooglePlacesPhotoProvider
 from notion_db_manager.infrastructure.photos.playwright_provider import PlaywrightPhotoProvider
@@ -40,14 +41,14 @@ def test_photo_provider_factory_default_concurrency() -> None:
 
 
 def test_photo_provider_factory_create_from_config() -> None:
-    from notion_db_manager.core.config import PhotoEnrichConfig
+    from notion_db_manager.core.config import TravelPhotoEnrichConfig
 
-    cfg_google = PhotoEnrichConfig(provider="google", concurrency=5, google_api_key="AIzaSyKey")
+    cfg_google = TravelPhotoEnrichConfig(provider="google", concurrency=5, google_api_key="AIzaSyKey")
     provider = PhotoProviderFactory.create_from_config(cfg_google)
     assert isinstance(provider, GooglePlacesPhotoProvider)
     assert provider.api_key == "AIzaSyKey"
 
-    cfg_pw = PhotoEnrichConfig(provider="playwright", concurrency=2)
+    cfg_pw = TravelPhotoEnrichConfig(provider="playwright", concurrency=2)
     provider_pw = PhotoProviderFactory.create_from_config(cfg_pw)
     assert isinstance(provider_pw, PlaywrightPhotoProvider)
 

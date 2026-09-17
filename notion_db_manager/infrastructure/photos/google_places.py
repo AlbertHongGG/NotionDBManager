@@ -5,7 +5,8 @@ import httpx
 
 from notion_db_manager.application.interfaces.photo_provider import PlacePhotoProvider
 from notion_db_manager.core.exceptions import ConfigurationError, PhotoProviderError
-from notion_db_manager.domain.places import PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel.places import PlaceItem, PlacePhoto
+
 
 
 class GooglePlacesPhotoProvider(PlacePhotoProvider):

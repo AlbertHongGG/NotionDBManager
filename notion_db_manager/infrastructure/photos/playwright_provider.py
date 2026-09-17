@@ -6,7 +6,8 @@ from typing import Any
 
 from notion_db_manager.application.interfaces.photo_provider import PlacePhotoProvider
 from notion_db_manager.core.exceptions import PhotoProviderError
-from notion_db_manager.domain.places import PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel.places import PlaceItem, PlacePhoto
+
 from notion_db_manager.infrastructure.photos.maps_page import GoogleMapsPageObject
 from notion_db_manager.infrastructure.photos.url_enhancer import GooglePhotoUrlEnhancer
 

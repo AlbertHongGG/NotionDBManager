@@ -36,8 +36,8 @@ Settings = NotionConnectionConfig
 
 
 @dataclass(frozen=True, slots=True)
-class PhotoEnrichConfig:
-    """Configuration required for photo enrichment tasks."""
+class TravelPhotoEnrichConfig:
+    """Configuration required for Travel Notion Template photo enrichment tasks."""
 
     provider: str
     concurrency: int
@@ -50,6 +50,9 @@ class PhotoEnrichConfig:
             raise ConfigurationError("照片提供者 (provider) 不能為空")
         if self.concurrency < 1:
             raise ConfigurationError(f"並發數量 (concurrency) 必須為大於或等於 1 的正整數，收到: {self.concurrency}")
+
+
+
 
 
 
@@ -160,13 +163,13 @@ class ConfigurationResolver:
         )
 
     @classmethod
-    def resolve_enrich_config(
+    def resolve_travel_photo_config(
         cls,
         args: Any,
         default_concurrency: int = 3,
         env_path: Path | None = None,
-    ) -> PhotoEnrichConfig:
-        """Resolves photo enrichment parameters."""
+    ) -> TravelPhotoEnrichConfig:
+        """Resolves Travel Notion Template photo enrichment parameters."""
         EnvLoader.load(env_path)
 
         provider = getattr(args, "provider", "playwright") or "playwright"
@@ -188,13 +191,15 @@ class ConfigurationResolver:
         categories = getattr(args, "categories", None)
         clean_directory = not getattr(args, "no_clean", False)
 
-        return PhotoEnrichConfig(
+        return TravelPhotoEnrichConfig(
             provider=provider,
             concurrency=concurrency,
             categories=categories,
             clean_directory=clean_directory,
             google_api_key=google_api_key,
         )
+
+
 
 
 

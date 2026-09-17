@@ -4,8 +4,8 @@ import argparse
 
 from notion_db_manager.cli.handlers import (
     ActionHandler,
-    EnrichHandler,
     ReaderHandler,
+    TravelHandler,
     WriterHandler,
 )
 from notion_db_manager.core.config import EnvLoader
@@ -19,8 +19,9 @@ class Dispatcher:
         self.handlers = handlers or {
             "reader": ReaderHandler(),
             "writer": WriterHandler(),
-            "enrich": EnrichHandler(),
+            "travel": TravelHandler(),
         }
+
 
     def dispatch(self, args: argparse.Namespace) -> None:
         EnvLoader.load()

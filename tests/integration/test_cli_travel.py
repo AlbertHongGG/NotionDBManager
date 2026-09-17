@@ -42,14 +42,14 @@ def sample_export_json(tmp_path: Path) -> Path:
     return input_file
 
 
-def test_cli_enrich_photos_google(tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_travel_enrich_photos_google(tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
         [
             "notion-db-manager",
-            "enrich",
-            "photos",
+            "travel",
+            "enrich-photos",
             "--input",
             str(sample_export_json),
             "--provider",
@@ -99,14 +99,16 @@ def test_cli_enrich_photos_google(tmp_path: Path, sample_export_json: Path, monk
     assert img1.read_bytes() == b"fake-image-bytes"
 
 
-def test_cli_enrich_photos_category_filter(tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_travel_enrich_photos_category_filter(
+    tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
         [
             "notion-db-manager",
-            "enrich",
-            "photos",
+            "travel",
+            "enrich-photos",
             "--input",
             str(sample_export_json),
             "--provider",
@@ -148,14 +150,16 @@ def test_cli_enrich_photos_category_filter(tmp_path: Path, sample_export_json: P
     assert manifest["success_count"] == 1
 
 
-def test_cli_enrich_photos_fail_fast(tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_travel_enrich_photos_fail_fast(
+    tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
         [
             "notion-db-manager",
-            "enrich",
-            "photos",
+            "travel",
+            "enrich-photos",
             "--input",
             str(sample_export_json),
             "--provider",
@@ -177,7 +181,7 @@ def test_cli_enrich_photos_fail_fast(tmp_path: Path, sample_export_json: Path, m
         assert exc_info.value.code == 1
 
 
-def test_cli_enrich_photos_cleans_stale_files(
+def test_cli_travel_enrich_photos_cleans_stale_files(
     tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -193,8 +197,8 @@ def test_cli_enrich_photos_cleans_stale_files(
         "sys.argv",
         [
             "notion-db-manager",
-            "enrich",
-            "photos",
+            "travel",
+            "enrich-photos",
             "--input",
             str(sample_export_json),
             "--provider",
@@ -234,7 +238,7 @@ def test_cli_enrich_photos_cleans_stale_files(
     assert (stale_dir / "01_手長足長像.jpg").is_file()
 
 
-def test_cli_enrich_photos_env_concurrency(
+def test_cli_travel_enrich_photos_env_concurrency(
     tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -243,8 +247,8 @@ def test_cli_enrich_photos_env_concurrency(
         "sys.argv",
         [
             "notion-db-manager",
-            "enrich",
-            "photos",
+            "travel",
+            "enrich-photos",
             "--input",
             str(sample_export_json),
             "--provider",
@@ -281,7 +285,7 @@ def test_cli_enrich_photos_env_concurrency(
     assert manifest_file.is_file()
 
 
-def test_cli_enrich_photos_concurrency_cli_override(
+def test_cli_travel_enrich_photos_concurrency_cli_override(
     tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -291,8 +295,8 @@ def test_cli_enrich_photos_concurrency_cli_override(
         "sys.argv",
         [
             "notion-db-manager",
-            "enrich",
-            "photos",
+            "travel",
+            "enrich-photos",
             "--input",
             str(sample_export_json),
             "--provider",
@@ -329,5 +333,3 @@ def test_cli_enrich_photos_concurrency_cli_override(
 
     manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
     assert manifest_file.is_file()
-
-

@@ -15,7 +15,7 @@ class PhotoProviderType(str, Enum):
 
 @dataclass(slots=True)
 class PlaceItem:
-    """Domain Entity representing a place record extracted from a Notion page."""
+    """Domain Entity representing a place record extracted from a Travel Notion Template page."""
 
     page_id: str
     index: int
@@ -28,7 +28,7 @@ class PlaceItem:
     def from_page(cls, page: Page) -> PlaceItem:
         props = page.properties
 
-        # Extract name (Title)
+        # Extract name (Title: "地點")
         name = ""
         for prop in props.values():
             if isinstance(prop, TitleProperty):
@@ -45,7 +45,7 @@ class PlaceItem:
             if raw_alias:
                 alias = str(raw_alias).strip()
 
-        # Extract categories ("屬性" or multi-select)
+        # Extract categories ("屬性" or multi-select: 景點, 用餐, 住宿, 交通, etc.)
         categories: list[str] = []
         if "屬性" in props:
             cat_prop = props["屬性"]
@@ -128,8 +128,8 @@ class EnrichItemResult:
 
 
 @dataclass(slots=True)
-class PhotoEnrichSummary:
-    """Aggregate report of a photo enrichment run."""
+class TravelPhotoEnrichSummary:
+    """Aggregate report of a Travel template photo enrichment run."""
 
     database_name: str
     provider: str
@@ -151,3 +151,7 @@ class PhotoEnrichSummary:
             "failed_count": self.failed_count,
             "items": [item.to_dict() for item in self.items],
         }
+
+
+# Alias PhotoEnrichSummary to TravelPhotoEnrichSummary for clear domain terminology
+PhotoEnrichSummary = TravelPhotoEnrichSummary

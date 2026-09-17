@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from notion_db_manager.cli.dispatch import Dispatcher
-from notion_db_manager.cli.handlers import ActionHandler, EnrichHandler, ReaderHandler, WriterHandler
+from notion_db_manager.cli.handlers import ActionHandler, ReaderHandler, TravelHandler, WriterHandler
 from notion_db_manager.core.exceptions import ValidationError
 
 
@@ -64,10 +64,11 @@ def test_writer_handler_invalid_action() -> None:
         assert "未知的 writer 動作" in str(exc_info.value)
 
 
-def test_enrich_handler_invalid_action() -> None:
-    handler = EnrichHandler()
+def test_travel_handler_invalid_action() -> None:
+    handler = TravelHandler()
     args = argparse.Namespace(action="invalid_action")
 
     with pytest.raises(ValidationError) as exc_info:
         handler.handle(args)
-    assert "未知的 enrich 動作" in str(exc_info.value)
+    assert "未知的 travel 動作" in str(exc_info.value)
+

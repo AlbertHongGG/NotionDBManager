@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 
-from notion_db_manager.application.commands.enrich_photos import EnrichPlacePhotosCommand
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage, PlacePhotoProvider
+from notion_db_manager.application.travel.commands.enrich_photos import TravelEnrichPhotosCommand
 from notion_db_manager.core.exceptions import InfrastructureError
 from notion_db_manager.domain.models.page import Page
-from notion_db_manager.domain.places import PlaceItem, PlacePhoto
 from notion_db_manager.domain.properties import MultiSelectProperty, TitleProperty
+from notion_db_manager.domain.travel.places import PlaceItem, PlacePhoto
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def mock_storage() -> MagicMock:
     return storage
 
 
-def test_enrich_photos_command_success(mock_storage: MagicMock) -> None:
+def test_travel_enrich_photos_command_success(mock_storage: MagicMock) -> None:
     provider = MagicMock(spec=PlacePhotoProvider)
     dummy_photo = PlacePhoto(
         data=b"img_bytes",
@@ -49,7 +50,7 @@ def test_enrich_photos_command_success(mock_storage: MagicMock) -> None:
         ),
     ]
 
-    cmd = EnrichPlacePhotosCommand(provider, mock_storage)
+    cmd = TravelEnrichPhotosCommand(provider, mock_storage)
     # Default without categories: all items are processed (including 交通)
     summary = cmd.execute_sync("行程安排", pages, provider_name="google", concurrency=2)
 
@@ -64,7 +65,7 @@ def test_enrich_photos_command_success(mock_storage: MagicMock) -> None:
     assert mock_storage.save_manifest.call_count == 1
 
 
-def test_enrich_photos_command_with_category_filter(mock_storage: MagicMock) -> None:
+def test_travel_enrich_photos_command_with_category_filter(mock_storage: MagicMock) -> None:
     provider = MagicMock(spec=PlacePhotoProvider)
     dummy_photo = PlacePhoto(
         data=b"img",
@@ -93,7 +94,7 @@ def test_enrich_photos_command_with_category_filter(mock_storage: MagicMock) -> 
         ),
     ]
 
-    cmd = EnrichPlacePhotosCommand(provider, mock_storage)
+    cmd = TravelEnrichPhotosCommand(provider, mock_storage)
     # Filter only "景點"
     summary = cmd.execute_sync("行程安排", pages, categories=["景點"], provider_name="google")
 
@@ -106,7 +107,7 @@ def test_enrich_photos_command_with_category_filter(mock_storage: MagicMock) -> 
     assert mock_storage.save_photo.call_count == 1
 
 
-def test_enrich_photos_fail_fast_on_provider_error(mock_storage: MagicMock) -> None:
+def test_travel_enrich_photos_fail_fast_on_provider_error(mock_storage: MagicMock) -> None:
     provider = MagicMock(spec=PlacePhotoProvider)
     provider.fetch_photo = AsyncMock(side_effect=InfrastructureError("Google Places API 認證失敗"))
 
@@ -121,7 +122,7 @@ def test_enrich_photos_fail_fast_on_provider_error(mock_storage: MagicMock) -> N
         )
     ]
 
-    cmd = EnrichPlacePhotosCommand(provider, mock_storage)
+    cmd = TravelEnrichPhotosCommand(provider, mock_storage)
     with pytest.raises(InfrastructureError) as exc_info:
         cmd.execute_sync("行程安排", pages, provider_name="google")
 
@@ -130,9 +131,7 @@ def test_enrich_photos_fail_fast_on_provider_error(mock_storage: MagicMock) -> N
     assert mock_storage.save_photo.call_count == 0
 
 
-def test_enrich_photos_worker_pool_concurrency_and_ordering(mock_storage: MagicMock) -> None:
-    import asyncio
-
+def test_travel_enrich_photos_worker_pool_concurrency_and_ordering(mock_storage: MagicMock) -> None:
     provider = MagicMock(spec=PlacePhotoProvider)
 
     # Simulate variable latency: item 1 takes 0.05s, item 2 takes 0.01s (finishes earlier)
@@ -157,7 +156,7 @@ def test_enrich_photos_worker_pool_concurrency_and_ordering(mock_storage: MagicM
         for i in range(1, 5)
     ]
 
-    cmd = EnrichPlacePhotosCommand(provider, mock_storage)
+    cmd = TravelEnrichPhotosCommand(provider, mock_storage)
     summary = cmd.execute_sync("行程安排", pages, provider_name="google", concurrency=4)
 
     assert summary.total_items == 4
@@ -167,14 +166,12 @@ def test_enrich_photos_worker_pool_concurrency_and_ordering(mock_storage: MagicM
     assert [r.name for r in summary.items] == ["地點 1", "地點 2", "地點 3", "地點 4"]
 
 
-def test_enrich_photos_empty_pages(mock_storage: MagicMock) -> None:
+def test_travel_enrich_photos_empty_pages(mock_storage: MagicMock) -> None:
     provider = MagicMock(spec=PlacePhotoProvider)
-    cmd = EnrichPlacePhotosCommand(provider, mock_storage)
+    cmd = TravelEnrichPhotosCommand(provider, mock_storage)
     summary = cmd.execute_sync("行程安排", [], provider_name="google", concurrency=2)
 
     assert summary.total_items == 0
     assert summary.processed_count == 0
     assert summary.items == []
     assert mock_storage.save_manifest.call_count == 1
-
-

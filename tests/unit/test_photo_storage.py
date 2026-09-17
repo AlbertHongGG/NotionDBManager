@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 import pytest
 
-from notion_db_manager.domain.places import EnrichItemResult, PhotoEnrichSummary, PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel.places import EnrichItemResult, PhotoEnrichSummary, PlaceItem, PlacePhoto
+
 from notion_db_manager.infrastructure.photos.storage import LocalPhotoStorage, sanitize_filename
 from notion_db_manager.infrastructure.storage.path_resolver import PathResolver
 

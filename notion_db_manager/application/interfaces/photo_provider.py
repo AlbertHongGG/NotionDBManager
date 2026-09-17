@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from notion_db_manager.domain.places import PhotoEnrichSummary, PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel.places import PhotoEnrichSummary, PlaceItem, PlacePhoto
+
 
 
 class PlacePhotoProvider(Protocol):

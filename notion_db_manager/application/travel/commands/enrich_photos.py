@@ -6,17 +6,17 @@ from typing import Callable
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage, PlacePhotoProvider
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models.page import Page
-from notion_db_manager.domain.places import EnrichItemResult, PhotoEnrichSummary, PlaceItem
+from notion_db_manager.domain.travel.places import EnrichItemResult, PlaceItem, TravelPhotoEnrichSummary
 
 ProgressCallback = Callable[[int, int, PlaceItem, str], None]
 
 
-class EnrichPlacePhotosCommand:
-    """Use case command for concurrently enriching place pages with representative photos.
+class TravelEnrichPhotosCommand:
+    """Use case command for concurrently enriching Travel Notion Template place pages with representative photos.
 
-    Coordinates reading places, evaluating domain targets, querying the chosen provider
-    with bounded concurrency (asyncio.Semaphore), persisting photos locally,
-    and recording the execution manifest in index order.
+    Coordinates reading places from Travel Template pages, evaluating category filters,
+    querying the chosen photo provider via an asynchronous Worker Pool (asyncio.Queue),
+    persisting photos locally, and recording the execution manifest in strict index order.
     Fails immediately (Fail-Fast) if the provider encounters an infrastructure or auth error.
     """
 
@@ -42,7 +42,7 @@ class EnrichPlacePhotosCommand:
         provider_name: str = "unknown",
         clean_directory: bool = True,
         concurrency: int = 1,
-    ) -> PhotoEnrichSummary:
+    ) -> TravelPhotoEnrichSummary:
         if concurrency < 1:
             raise ValidationError(f"並發數量 (concurrency) 必須為大於或等於 1 的正整數，收到: {concurrency}")
 
@@ -54,7 +54,7 @@ class EnrichPlacePhotosCommand:
         total_count = len(items)
 
         if total_count == 0:
-            empty_summary = PhotoEnrichSummary(
+            empty_summary = TravelPhotoEnrichSummary(
                 database_name=database_name,
                 provider=provider_name,
                 total_items=0,
@@ -144,7 +144,7 @@ class EnrichPlacePhotosCommand:
         failed_count = sum(1 for r in final_items if r.status == "failed")
         processed_count = success_count + failed_count
 
-        summary = PhotoEnrichSummary(
+        summary = TravelPhotoEnrichSummary(
             database_name=database_name,
             provider=provider_name,
             total_items=total_count,
@@ -166,7 +166,7 @@ class EnrichPlacePhotosCommand:
         provider_name: str = "unknown",
         clean_directory: bool = True,
         concurrency: int = 1,
-    ) -> PhotoEnrichSummary:
+    ) -> TravelPhotoEnrichSummary:
         """Synchronous wrapper for execute."""
         return asyncio.run(
             self.execute(
@@ -180,3 +180,5 @@ class EnrichPlacePhotosCommand:
         )
 
 
+# Alias for compatibility
+EnrichPlacePhotosCommand = TravelEnrichPhotosCommand

@@ -63,12 +63,15 @@ def build_parser() -> argparse.ArgumentParser:
     write_rows.add_argument("--mode", choices=["append", "insert", "overwrite"], required=True)
     write_rows.add_argument("--index", type=int, help="Required for insert and overwrite")
 
-    # Enrich category
-    enrich = subparsers.add_parser("enrich", help="Data enrichment operations")
-    enrich_subparsers = enrich.add_subparsers(dest="action", required=True)
+    # Travel Notion Template category
+    travel = subparsers.add_parser("travel", help="Travel Notion Template specialized operations")
+    travel_subparsers = travel.add_subparsers(dest="action", required=True)
 
-    # enrich photos
-    enrich_photos = enrich_subparsers.add_parser("photos", help="Fetch representative photos for places")
+    # travel enrich-photos
+    enrich_photos = travel_subparsers.add_parser(
+        "enrich-photos",
+        help="Fetch representative photos for places in Travel Notion Template",
+    )
     add_common_database_args(enrich_photos)
     enrich_photos.add_argument(
         "--provider",
@@ -105,5 +108,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Do not purge existing images in target output directory before download (default: purge old files)",
     )
+
 
     return parser

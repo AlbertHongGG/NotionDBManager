@@ -6,7 +6,8 @@ from pathlib import Path
 
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage
 from notion_db_manager.core.exceptions import StorageError
-from notion_db_manager.domain.places import PhotoEnrichSummary, PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel.places import PhotoEnrichSummary, PlaceItem, PlacePhoto
+
 from notion_db_manager.infrastructure.storage.path_resolver import PathResolver
 
 

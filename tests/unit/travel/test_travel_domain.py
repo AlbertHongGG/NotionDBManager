@@ -3,14 +3,15 @@ from __future__ import annotations
 import pytest
 
 from notion_db_manager.domain.models.page import Page
-from notion_db_manager.domain.places import (
+from notion_db_manager.domain.properties import MultiSelectProperty, RichTextProperty, TitleProperty, UrlProperty
+from notion_db_manager.domain.travel.places import (
     EnrichItemResult,
     PhotoEnrichSummary,
     PhotoProviderType,
     PlaceItem,
     PlacePhoto,
+    TravelPhotoEnrichSummary,
 )
-from notion_db_manager.domain.properties import MultiSelectProperty, RichTextProperty, TitleProperty, UrlProperty
 
 
 def test_place_item_from_page() -> None:
@@ -84,7 +85,7 @@ def test_place_photo_value_object() -> None:
 
 
 def test_photo_enrich_summary_to_dict() -> None:
-    summary = PhotoEnrichSummary(
+    summary = TravelPhotoEnrichSummary(
         database_name="行程安排",
         provider="google",
         total_items=10,

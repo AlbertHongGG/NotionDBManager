@@ -73,27 +73,27 @@ def test_env_loader_concurrency(monkeypatch) -> None:
         EnvLoader.get_concurrency()
 
 
-def test_photo_enrich_config_validation() -> None:
+def test_travel_photo_enrich_config_validation() -> None:
     import pytest
-    from notion_db_manager.core.config import PhotoEnrichConfig
+    from notion_db_manager.core.config import TravelPhotoEnrichConfig
     from notion_db_manager.core.exceptions import ConfigurationError
 
     # Valid config
-    cfg = PhotoEnrichConfig(provider="google", concurrency=5)
+    cfg = TravelPhotoEnrichConfig(provider="google", concurrency=5)
     assert cfg.provider == "google"
     assert cfg.concurrency == 5
     assert cfg.clean_directory is True
 
     # Empty provider
     with pytest.raises(ConfigurationError, match="不能為空"):
-        PhotoEnrichConfig(provider="", concurrency=3)
+        TravelPhotoEnrichConfig(provider="", concurrency=3)
 
     # Concurrency < 1
     with pytest.raises(ConfigurationError, match="必須為大於或等於 1"):
-        PhotoEnrichConfig(provider="google", concurrency=0)
+        TravelPhotoEnrichConfig(provider="google", concurrency=0)
 
 
-def test_configuration_resolver_enrich(tmp_path: Path, monkeypatch) -> None:
+def test_configuration_resolver_travel_photo(tmp_path: Path, monkeypatch) -> None:
     import argparse
     import pytest
     from notion_db_manager.core.config import ConfigurationResolver
@@ -110,19 +110,19 @@ def test_configuration_resolver_enrich(tmp_path: Path, monkeypatch) -> None:
 
     # 1. Fallback to default
     args1 = argparse.Namespace()
-    res1 = ConfigurationResolver.resolve_enrich_config(args1, default_concurrency=3, env_path=empty_env)
+    res1 = ConfigurationResolver.resolve_travel_photo_config(args1, default_concurrency=3, env_path=empty_env)
     assert res1.provider == "playwright"
     assert res1.concurrency == 3
     assert res1.clean_directory is True
 
     # 2. Env overrides default
     monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "6")
-    res2 = ConfigurationResolver.resolve_enrich_config(args1, default_concurrency=3, env_path=empty_env)
+    res2 = ConfigurationResolver.resolve_travel_photo_config(args1, default_concurrency=3, env_path=empty_env)
     assert res2.concurrency == 6
 
     # 3. CLI overrides env
     args3 = argparse.Namespace(concurrency=2, provider="google", no_clean=True, google_api_key="cli_key")
-    res3 = ConfigurationResolver.resolve_enrich_config(args3, default_concurrency=3, env_path=empty_env)
+    res3 = ConfigurationResolver.resolve_travel_photo_config(args3, default_concurrency=3, env_path=empty_env)
     assert res3.provider == "google"
     assert res3.concurrency == 2
     assert res3.clean_directory is False
@@ -131,7 +131,7 @@ def test_configuration_resolver_enrich(tmp_path: Path, monkeypatch) -> None:
     # 4. Invalid CLI concurrency raises ValidationError
     args_invalid = argparse.Namespace(concurrency=0)
     with pytest.raises(ValidationError, match="大於或等於 1"):
-        ConfigurationResolver.resolve_enrich_config(args_invalid, default_concurrency=3, env_path=empty_env)
+        ConfigurationResolver.resolve_travel_photo_config(args_invalid, default_concurrency=3, env_path=empty_env)
 
 
 

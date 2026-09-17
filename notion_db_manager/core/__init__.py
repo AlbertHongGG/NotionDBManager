@@ -4,9 +4,10 @@ from notion_db_manager.core.config import (
     ConfigurationResolver,
     EnvLoader,
     NotionConnectionConfig,
-    PhotoEnrichConfig,
     Settings,
+    TravelPhotoEnrichConfig,
 )
+
 from notion_db_manager.core.exceptions import (
     AmbiguousDatabaseError,
     ConfigurationError,
@@ -37,9 +38,10 @@ __all__ = [
     "NotionConnectionConfig",
     "NotionGatewayError",
     "ORDER_PROPERTY",
-    "PhotoEnrichConfig",
     "Settings",
     "StorageError",
+    "TravelPhotoEnrichConfig",
     "ValidationError",
     "WriteRowsMode",
 ]
+

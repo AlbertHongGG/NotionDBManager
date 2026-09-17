@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from notion_db_manager.application.interfaces.photo_provider import PlacePhotoProvider
-from notion_db_manager.core.config import PhotoEnrichConfig
+from notion_db_manager.core.config import TravelPhotoEnrichConfig
 from notion_db_manager.core.exceptions import ConfigurationError, ValidationError
-from notion_db_manager.domain.places import PhotoProviderType
+from notion_db_manager.domain.travel.places import PhotoProviderType
 from notion_db_manager.infrastructure.photos.google_places import GooglePlacesPhotoProvider
 from notion_db_manager.infrastructure.photos.playwright_provider import PlaywrightPhotoProvider
+
 
 
 class PhotoProviderFactory:
@@ -30,10 +31,10 @@ class PhotoProviderFactory:
     @classmethod
     def create_from_config(
         cls,
-        config: PhotoEnrichConfig,
+        config: TravelPhotoEnrichConfig,
         headless: bool = True,
     ) -> PlacePhotoProvider:
-        """Instantiates a provider based on a PhotoEnrichConfig value object."""
+        """Instantiates a provider based on a TravelPhotoEnrichConfig value object."""
         raw_val = config.provider.value if isinstance(config.provider, PhotoProviderType) else str(config.provider).lower()
 
         if raw_val == PhotoProviderType.GOOGLE.value:
@@ -60,7 +61,7 @@ class PhotoProviderFactory:
     ) -> PlacePhotoProvider:
         """Backward-compatible factory method delegating to create_from_config."""
         raw_val = provider_type.value if isinstance(provider_type, PhotoProviderType) else str(provider_type).lower()
-        enrich_config = PhotoEnrichConfig(
+        enrich_config = TravelPhotoEnrichConfig(
             provider=raw_val,
             concurrency=cls.get_default_concurrency(raw_val),
             google_api_key=google_api_key,
