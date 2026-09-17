@@ -7,6 +7,7 @@ from notion_db_manager.application.commands.travel import (
     TravelEnrichPhotosCommand,
     TravelPushPhotosCommand,
 )
+from notion_db_manager.application.services import TravelContextResolver
 from notion_db_manager.cli.handlers.base import ActionHandler
 from notion_db_manager.cli.prompt import resolve_settings
 from notion_db_manager.cli.runner import AsyncCommandRunner
@@ -15,6 +16,7 @@ from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models import DatabaseQuery, PageReference
 from notion_db_manager.domain.travel import (
     PlaceItem,
+    TravelContext,
     TravelPhotoEnrichSummary,
     TravelPhotoPushSummary,
 )
@@ -45,8 +47,10 @@ class TravelHandler(ActionHandler):
 
     def _handle_enrich_photos(self, args: argparse.Namespace) -> None:
         storage = JsonDocumentStorage(path_resolver=PathResolver())
+        photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
 
         # Determine data source: input JSON document (offline mode) or live Notion database
+        context: TravelContext | None = None
         if args.input:
             document = storage.read(args.input)
             db_name = document.meta.database_name or "default"
@@ -55,16 +59,21 @@ class TravelHandler(ActionHandler):
             settings = resolve_settings(args)
             client = NotionHttpClient(token=settings.token)
             gateway = NotionGatewayImpl(client=client)
-            parent_ref = PageReference.from_raw(settings.page) if settings.page else None
-            query = DatabaseQuery(
+            context = TravelContextResolver.resolve(
+                gateway=gateway,
+                storage=photo_storage,
                 database_name=settings.database_name,
                 database_id=settings.database_id,
-                parent_page=parent_ref,
+                page=settings.page,
             )
-            database = gateway.locate_database(query)
-            database = gateway.ensure_order_property(database)
-            pages = gateway.get_ordered_pages(database)
-            db_name = database.name
+            updated_database = gateway.ensure_order_property(context.database)
+            context = TravelContext(
+                database=updated_database,
+                images_dir=context.images_dir,
+                manifest_path=context.manifest_path,
+            )
+            pages = gateway.get_ordered_pages(context.database)
+            db_name = context.database.name
 
         provider_name = getattr(args, "provider", "playwright") or "playwright"
         default_concurrency = PhotoProviderFactory.get_default_concurrency(provider_name)
@@ -74,7 +83,6 @@ class TravelHandler(ActionHandler):
         )
 
         provider = PhotoProviderFactory.create(config)
-        photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
 
         def on_progress(idx: int, total: int, item: PlaceItem, status: str) -> None:
             cat_str = f" [{', '.join(item.categories)}]" if item.categories else ""
@@ -89,6 +97,7 @@ class TravelHandler(ActionHandler):
         async def _run() -> TravelPhotoEnrichSummary:
             try:
                 return await cmd.execute(
+                    context=context,
                     database_name=db_name,
                     pages=pages,
                     categories=config.categories,
@@ -117,35 +126,30 @@ class TravelHandler(ActionHandler):
             settings = resolve_settings(args)
             token = settings.token
             db_name = push_config.database_name or settings.database_name or ""
+            db_id = push_config.database_id or settings.database_id
+            page_val = push_config.page or settings.page
         else:
             token = push_config.token
             db_name = push_config.database_name
+            db_id = push_config.database_id
+            page_val = push_config.page
 
-        if not db_name and not push_config.database_id:
+        if not db_name and not db_id and not push_config.input_manifest:
             db_name = input("Database name: ").strip()
 
         client = NotionHttpClient(token=token)
         gateway = NotionGatewayImpl(client=client)
         photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
 
-        # Resolve canonical database name from Notion if manifest is not explicitly passed
-        target_db_name = db_name
-        if not push_config.input_manifest and (db_name or push_config.database_id):
-            parent_ref = PageReference.from_raw(push_config.page) if push_config.page else None
-            query = DatabaseQuery(
+        context: TravelContext | None = None
+        if not push_config.input_manifest and (db_name or db_id):
+            context = TravelContextResolver.resolve(
+                gateway=gateway,
+                storage=photo_storage,
                 database_name=db_name,
-                database_id=push_config.database_id,
-                parent_page=parent_ref,
+                database_id=db_id,
+                page=page_val,
             )
-            try:
-                database = gateway.locate_database(query)
-                cand_path = photo_storage.get_images_dir(database.name) / "manifest.json"
-                if cand_path.is_file():
-                    target_db_name = database.name
-                elif not target_db_name:
-                    target_db_name = database.name
-            except Exception:
-                pass
 
         def on_progress(idx: int, total: int, name: str, status: str) -> None:
             print(f"[{idx}/{total}] {name}: {status}")
@@ -158,7 +162,8 @@ class TravelHandler(ActionHandler):
 
         async def _run() -> TravelPhotoPushSummary:
             return await cmd.execute(
-                database_name=target_db_name,
+                context=context,
+                database_name=context.database.name if context else db_name,
                 custom_manifest=push_config.input_manifest,
                 concurrency=push_config.concurrency,
                 delay=push_config.delay,

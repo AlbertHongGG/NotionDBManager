@@ -99,3 +99,28 @@ def test_maps_page_locate_hero_photo_ignores_avatar() -> None:
     assert url is None
 
 
+def test_maps_page_locate_hero_photo_feed_item_transition() -> None:
+    from notion_db_manager.infrastructure.photos.maps_page import GoogleMapsPageObject
+
+    mock_page = MagicMock()
+    feed_link = MagicMock()
+    feed_link.evaluate = AsyncMock(return_value="a")
+    feed_link.click = AsyncMock()
+
+    detail_btn = MagicMock()
+    mock_img = MagicMock()
+    mock_img.get_attribute = AsyncMock(return_value="https://lh3.googleusercontent.com/p/detail_photo=w100-h100")
+    detail_btn.wait_for_selector = AsyncMock(return_value=mock_img)
+
+    # First wait_for_selector returns feed_link (combined selector), second returns detail_btn (hero selector)
+    mock_page.wait_for_selector = AsyncMock(side_effect=[feed_link, detail_btn])
+
+    maps_page = GoogleMapsPageObject(mock_page, timeout_ms=500)
+    with patch("asyncio.sleep", new=AsyncMock()):
+        url = asyncio.run(maps_page.locate_hero_photo_url())
+
+    feed_link.click.assert_called_once()
+    assert url == "https://lh3.googleusercontent.com/p/detail_photo=w100-h100"
+
+
+

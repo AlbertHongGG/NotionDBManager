@@ -126,10 +126,7 @@ class PlaywrightPhotoProvider(PlacePhotoProvider):
         await self.close()
 
     def _resolve_target_url(self, place: PlaceItem) -> str:
-        if place.navigation_url and "maps" in place.navigation_url:
-            return place.navigation_url
-        query = place.best_search_query()
-        return f"https://www.google.com/maps/search/{urllib.parse.quote(query)}"
+        return place.best_target_url()
 
     def _enhance_resolution(self, url: str) -> str:
         """Helper delegating to GooglePhotoUrlEnhancer."""

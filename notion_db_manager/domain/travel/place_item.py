@@ -78,3 +78,25 @@ class PlaceItem:
         if self.alias and self.alias.strip():
             return self.alias.strip()
         return self.name.strip()
+
+    def has_valid_maps_url(self) -> bool:
+        """Determines if navigation_url contains a valid Google Maps link."""
+        if not self.navigation_url:
+            return False
+        url_lower = self.navigation_url.lower().strip()
+        return (
+            "maps.app.goo.gl" in url_lower
+            or "goo.gl/maps" in url_lower
+            or "google.com/maps" in url_lower
+            or "maps.google." in url_lower
+            or ("maps" in url_lower and url_lower.startswith("http"))
+        )
+
+    def best_target_url(self) -> str:
+        """Returns direct navigation URL if valid Google Maps link, otherwise generates search URL."""
+        if self.has_valid_maps_url():
+            assert self.navigation_url is not None
+            return self.navigation_url.strip()
+        import urllib.parse
+        query = self.best_search_query()
+        return f"https://www.google.com/maps/search/{urllib.parse.quote(query)}"

@@ -18,7 +18,11 @@ class GooglePhotoUrlEnhancer:
         if not url or not isinstance(url, str):
             return False
 
-        if "googleusercontent.com" not in url and "ggpht.com" not in url:
+        if (
+            "googleusercontent.com" not in url
+            and "ggpht.com" not in url
+            and "googleapis.com" not in url
+        ):
             return False
 
         # Exclude user avatars and account profile pictures
@@ -27,7 +31,9 @@ class GooglePhotoUrlEnhancer:
                 return False
 
         # Accept known place photo paths or general google photo formats
-        return any(pattern in url for pattern in cls.PLACE_PHOTO_PATTERNS) or ("=w" in url or "=s" in url)
+        return any(pattern in url for pattern in cls.PLACE_PHOTO_PATTERNS) or (
+            "=w" in url or "=s" in url or "streetview" in url
+        )
 
     @classmethod
     def enhance_resolution(cls, url: str, width: int = 1600, height: int = 1200) -> str:

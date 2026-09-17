@@ -6,7 +6,7 @@ from typing import Callable
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage, PlacePhotoProvider
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models.page import Page
-from notion_db_manager.domain.travel import EnrichItemResult, PlaceItem, TravelPhotoEnrichSummary
+from notion_db_manager.domain.travel import EnrichItemResult, PlaceItem, TravelContext, TravelPhotoEnrichSummary
 
 ProgressCallback = Callable[[int, int, PlaceItem, str], None]
 
@@ -36,8 +36,9 @@ class TravelEnrichPhotosCommand:
 
     async def execute(
         self,
-        database_name: str,
-        pages: list[Page],
+        context: TravelContext | None = None,
+        database_name: str | None = None,
+        pages: list[Page] | None = None,
         categories: list[str] | None = None,
         provider_name: str = "unknown",
         clean_directory: bool = True,
@@ -46,16 +47,19 @@ class TravelEnrichPhotosCommand:
         if concurrency < 1:
             raise ValidationError(f"並發數量 (concurrency) 必須為大於或等於 1 的正整數，收到: {concurrency}")
 
-        # Purge stale contents if clean_directory is True before processing new items
-        self.storage.prepare_directory(database_name, clean=clean_directory)
+        db_name = context.database.name if context else (database_name or "default")
 
-        items = [PlaceItem.from_page(p) for p in pages]
+        # Purge stale contents if clean_directory is True before processing new items
+        self.storage.prepare_directory(db_name, clean=clean_directory)
+
+        target_pages = pages if pages is not None else []
+        items = [PlaceItem.from_page(p) for p in target_pages]
         allowed_cats = set(categories) if categories else None
         total_count = len(items)
 
         if total_count == 0:
             empty_summary = TravelPhotoEnrichSummary(
-                database_name=database_name,
+                database_name=db_name,
                 provider=provider_name,
                 total_items=0,
                 processed_count=0,
@@ -64,7 +68,7 @@ class TravelEnrichPhotosCommand:
                 failed_count=0,
                 items=[],
             )
-            self.storage.save_manifest(database_name, empty_summary)
+            self.storage.save_manifest(db_name, empty_summary)
             return empty_summary
 
         # Pre-allocate results array to guarantee exact original index ordering without locks
@@ -110,7 +114,7 @@ class TravelEnrichPhotosCommand:
                             error_message="找不到對應的代表相片",
                         )
                     else:
-                        saved_path = self.storage.save_photo(database_name, item, photo)
+                        saved_path = self.storage.save_photo(db_name, item, photo)
                         self._report(item.index, total_count, item, f"已儲存 -> {saved_path.name}")
                         results[slot_idx] = EnrichItemResult(
                             index=item.index,
@@ -145,7 +149,7 @@ class TravelEnrichPhotosCommand:
         processed_count = success_count + failed_count
 
         summary = TravelPhotoEnrichSummary(
-            database_name=database_name,
+            database_name=db_name,
             provider=provider_name,
             total_items=total_count,
             processed_count=processed_count,
@@ -155,7 +159,7 @@ class TravelEnrichPhotosCommand:
             items=final_items,
         )
 
-        self.storage.save_manifest(database_name, summary)
+        self.storage.save_manifest(db_name, summary)
         return summary
 
     def execute_sync(

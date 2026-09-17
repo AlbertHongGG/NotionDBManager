@@ -382,7 +382,11 @@ def test_cli_travel_push_photos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         ],
     )
 
-    with patch("notion_db_manager.infrastructure.notion.gateway.NotionGatewayImpl.upload_file", return_value="fu_12345") as mock_upload, \
+    from notion_db_manager.domain.models import Database
+    fake_db = Database(id="db_test_123", name="行程安排", properties={}, title_property_name="地點")
+
+    with patch("notion_db_manager.infrastructure.notion.gateway.NotionGatewayImpl.locate_database", return_value=fake_db), \
+         patch("notion_db_manager.infrastructure.notion.gateway.NotionGatewayImpl.upload_file", return_value="fu_12345") as mock_upload, \
          patch("notion_db_manager.infrastructure.notion.gateway.NotionGatewayImpl.update_page_properties") as mock_update:
         main()
 

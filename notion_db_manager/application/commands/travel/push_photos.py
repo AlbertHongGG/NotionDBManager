@@ -7,6 +7,7 @@ from typing import Callable
 from notion_db_manager.application.interfaces.notion_gateway import NotionGateway
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage
 from notion_db_manager.domain.properties.file import FileProperty
+from notion_db_manager.domain.travel import TravelContext
 from notion_db_manager.domain.travel.summary import PushItemResult, TravelPhotoPushSummary
 
 ProgressCallback = Callable[[int, int, str, str], None]
@@ -34,17 +35,20 @@ class TravelPushPhotosCommand:
 
     async def execute(
         self,
-        database_name: str,
+        context: TravelContext | None = None,
+        database_name: str | None = None,
         custom_manifest: Path | None = None,
         concurrency: int = 2,
         delay: float = 0.2,
     ) -> TravelPhotoPushSummary:
-        manifest = self.storage.read_manifest(database_name, custom_path=custom_manifest)
+        db_name = context.database.name if context else (database_name or "default")
+        manifest_target = custom_manifest or (context.manifest_path if context else None)
+        manifest = self.storage.read_manifest(db_name, custom_path=manifest_target)
         total_items = len(manifest.items)
 
         if total_items == 0:
             return TravelPhotoPushSummary(
-                database_name=database_name,
+                database_name=db_name,
                 total_items=0,
                 processed_count=0,
                 skipped_count=0,
@@ -87,7 +91,7 @@ class TravelPushPhotosCommand:
                     break
 
                 try:
-                    photo_bytes = self.storage.load_photo_bytes(database_name, target_item)
+                    photo_bytes = self.storage.load_photo_bytes(db_name, target_item)
                     filename = Path(target_item.local_path).name if target_item.local_path else f"{target_item.index}_{target_item.name}.jpg"
                     ext = Path(filename).suffix.lower()
                     mime_type = mime_map.get(ext, "image/jpeg")
@@ -145,7 +149,7 @@ class TravelPushPhotosCommand:
         processed_count = success_count + failed_count
 
         return TravelPhotoPushSummary(
-            database_name=database_name,
+            database_name=db_name,
             total_items=total_items,
             processed_count=processed_count,
             skipped_count=skipped_count,
@@ -156,7 +160,8 @@ class TravelPushPhotosCommand:
 
     def execute_sync(
         self,
-        database_name: str,
+        context: TravelContext | None = None,
+        database_name: str | None = None,
         custom_manifest: Path | None = None,
         concurrency: int = 2,
         delay: float = 0.2,
@@ -164,6 +169,7 @@ class TravelPushPhotosCommand:
         """Synchronous wrapper for execute."""
         return asyncio.run(
             self.execute(
+                context=context,
                 database_name=database_name,
                 custom_manifest=custom_manifest,
                 concurrency=concurrency,

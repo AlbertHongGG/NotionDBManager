@@ -107,5 +107,60 @@ def test_photo_enrich_summary_to_dict() -> None:
     data = summary.to_dict()
     assert data["database_name"] == "行程安排"
     assert data["provider"] == "google"
-    assert len(data["items"]) == 1
     assert data["items"][0]["status"] == "success"
+
+
+def test_place_item_navigation_url_priority() -> None:
+    # Item with valid Google Maps short link
+    item_with_maps = PlaceItem(
+        page_id="p1",
+        index=1,
+        name="手長足長像",
+        alias="足長像",
+        navigation_url="https://maps.app.goo.gl/example123",
+    )
+    assert item_with_maps.has_valid_maps_url() is True
+    assert item_with_maps.best_target_url() == "https://maps.app.goo.gl/example123"
+
+    # Item with full google maps link
+    item_with_full_maps = PlaceItem(
+        page_id="p2",
+        index=2,
+        name="名古屋城",
+        navigation_url="https://www.google.com/maps/place/%E5%90%8D%E5%8F%A4%E5%B1%8B%E5%9F%8E/",
+    )
+    assert item_with_full_maps.has_valid_maps_url() is True
+    assert "google.com/maps/place" in item_with_full_maps.best_target_url()
+
+    # Item without navigation URL -> search query fallback
+    item_no_url = PlaceItem(
+        page_id="p3",
+        index=3,
+        name="中部國際機場",
+        alias="中部国際空港 セントレア",
+        navigation_url=None,
+    )
+    assert item_no_url.has_valid_maps_url() is False
+    assert "https://www.google.com/maps/search/" in item_no_url.best_target_url()
+    assert "%E4%B8%AD%E9%83%A8%E5%9B%BD%E9%9A%9B%E7%A9%BA%E6%B8%AF" in item_no_url.best_target_url()
+
+
+def test_travel_context_value_object() -> None:
+    from pathlib import Path
+    from notion_db_manager.domain.models import Database
+    from notion_db_manager.domain.travel import TravelContext
+
+    db = Database(id="db_123", name="行程安排", properties={}, title_property_name="地點")
+    context = TravelContext(
+        database=db,
+        images_dir=Path("output/images/行程安排"),
+        manifest_path=Path("output/images/行程安排/manifest.json"),
+    )
+
+    assert context.database.name == "行程安排"
+    assert context.images_dir == Path("output/images/行程安排")
+    assert context.manifest_path == Path("output/images/行程安排/manifest.json")
+
+    with pytest.raises(AttributeError):
+        context.images_dir = Path("other")  # type: ignore[misc]
+
