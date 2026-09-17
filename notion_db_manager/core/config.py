@@ -31,10 +31,6 @@ class NotionConnectionConfig:
             raise ConfigurationError("必須提供 Notion Database Name 或 Database ID (可由參數或 .env 設定)")
 
 
-# Alias Settings to NotionConnectionConfig for domain compatibility
-Settings = NotionConnectionConfig
-
-
 @dataclass(frozen=True, slots=True)
 class TravelPhotoEnrichConfig:
     """Configuration required for Travel Notion Template photo enrichment tasks."""

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from notion_db_manager.domain.travel.places import PhotoEnrichSummary, PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel import TravelPhotoEnrichSummary, PlaceItem, PlacePhoto
 
 
 
@@ -36,6 +36,6 @@ class PhotoStorage(Protocol):
         """Saves a photo binary to disk and returns the saved file path."""
         ...
 
-    def save_manifest(self, database_name: str, summary: PhotoEnrichSummary) -> Path:
+    def save_manifest(self, database_name: str, summary: TravelPhotoEnrichSummary) -> Path:
         """Saves an enrichment run manifest JSON and returns the saved file path."""
         ...

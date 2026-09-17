@@ -6,7 +6,7 @@ from pathlib import Path
 
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage
 from notion_db_manager.core.exceptions import StorageError
-from notion_db_manager.domain.travel.places import PhotoEnrichSummary, PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel import TravelPhotoEnrichSummary, PlaceItem, PlacePhoto
 
 from notion_db_manager.infrastructure.storage.path_resolver import PathResolver
 
@@ -60,7 +60,7 @@ class LocalPhotoStorage(PhotoStorage):
         except Exception as exc:
             raise StorageError(f"寫入相片檔案失敗 [{place.name}]: {exc}") from exc
 
-    def save_manifest(self, database_name: str, summary: PhotoEnrichSummary) -> Path:
+    def save_manifest(self, database_name: str, summary: TravelPhotoEnrichSummary) -> Path:
         try:
             target_dir = self.get_images_dir(database_name)
             manifest_path = target_dir / "manifest.json"

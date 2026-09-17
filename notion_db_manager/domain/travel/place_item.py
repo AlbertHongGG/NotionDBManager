@@ -1,16 +1,8 @@
 from __future__ import annotations
-
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any
 
 from notion_db_manager.domain.models.page import Page
-from notion_db_manager.domain.properties import MultiSelectProperty, RichTextProperty, TitleProperty, UrlProperty
-
-
-class PhotoProviderType(str, Enum):
-    PLAYWRIGHT = "playwright"
-    GOOGLE = "google"
+from notion_db_manager.domain.properties import MultiSelectProperty, TitleProperty
 
 
 @dataclass(slots=True)
@@ -86,72 +78,3 @@ class PlaceItem:
         if self.alias and self.alias.strip():
             return self.alias.strip()
         return self.name.strip()
-
-
-@dataclass(frozen=True, slots=True)
-class PlacePhoto:
-    """Value Object encapsulating a downloaded place photo."""
-
-    data: bytes
-    mime_type: str
-    extension: str
-    source_url: str
-    width: int | None = None
-    height: int | None = None
-    author: str | None = None
-
-
-@dataclass(slots=True)
-class EnrichItemResult:
-    """Value Object representing the enrichment outcome for a single place."""
-
-    index: int
-    page_id: str
-    name: str
-    status: str  # "success" | "skipped" | "failed"
-    categories: list[str] = field(default_factory=list)
-    local_path: str | None = None
-    source_url: str | None = None
-    error_message: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "index": self.index,
-            "page_id": self.page_id,
-            "name": self.name,
-            "status": self.status,
-            "categories": self.categories,
-            "local_path": self.local_path,
-            "source_url": self.source_url,
-            "error_message": self.error_message,
-        }
-
-
-@dataclass(slots=True)
-class TravelPhotoEnrichSummary:
-    """Aggregate report of a Travel template photo enrichment run."""
-
-    database_name: str
-    provider: str
-    total_items: int
-    processed_count: int
-    skipped_count: int
-    success_count: int
-    failed_count: int
-    items: list[EnrichItemResult] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "database_name": self.database_name,
-            "provider": self.provider,
-            "total_items": self.total_items,
-            "processed_count": self.processed_count,
-            "skipped_count": self.skipped_count,
-            "success_count": self.success_count,
-            "failed_count": self.failed_count,
-            "items": [item.to_dict() for item in self.items],
-        }
-
-
-# Alias PhotoEnrichSummary to TravelPhotoEnrichSummary for clear domain terminology
-PhotoEnrichSummary = TravelPhotoEnrichSummary

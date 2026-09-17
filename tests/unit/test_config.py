@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from notion_db_manager.core.config import EnvLoader, Settings
+from notion_db_manager.core.config import EnvLoader, NotionConnectionConfig
 
 
 def test_env_loader_with_page(tmp_path: Path, monkeypatch) -> None:
@@ -41,16 +41,16 @@ def test_env_loader_with_page(tmp_path: Path, monkeypatch) -> None:
     assert EnvLoader.get_database_id() == "c1387d8998314c289ea9952467d3df13"
     assert EnvLoader.get_google_map_api() == "AIzaSyTestKey123"
 
-    settings = Settings(
+    config = NotionConnectionConfig(
         token=EnvLoader.get_token() or "",
         database_name=EnvLoader.get_database_name(),
         page=EnvLoader.get_page(),
         database_id=EnvLoader.get_database_id(),
     )
-    assert settings.token == "secret_token_123"
-    assert settings.database_name == "行程安排"
-    assert settings.page == "名古屋自由行"
-    assert settings.database_id == "c1387d8998314c289ea9952467d3df13"
+    assert config.token == "secret_token_123"
+    assert config.database_name == "行程安排"
+    assert config.page == "名古屋自由行"
+    assert config.database_id == "c1387d8998314c289ea9952467d3df13"
 
 
 

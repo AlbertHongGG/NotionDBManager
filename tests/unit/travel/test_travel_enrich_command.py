@@ -6,11 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage, PlacePhotoProvider
-from notion_db_manager.application.travel.commands.enrich_photos import TravelEnrichPhotosCommand
+from notion_db_manager.application.commands.travel.enrich_photos import TravelEnrichPhotosCommand
 from notion_db_manager.core.exceptions import InfrastructureError
 from notion_db_manager.domain.models.page import Page
 from notion_db_manager.domain.properties import MultiSelectProperty, TitleProperty
-from notion_db_manager.domain.travel.places import PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel import PlaceItem, PlacePhoto
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import pytest
 
-from notion_db_manager.domain.travel.places import EnrichItemResult, PhotoEnrichSummary, PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel import EnrichItemResult, TravelPhotoEnrichSummary, PlaceItem, PlacePhoto
 
 from notion_db_manager.infrastructure.photos.storage import LocalPhotoStorage, sanitize_filename
 from notion_db_manager.infrastructure.storage.path_resolver import PathResolver
@@ -45,7 +45,7 @@ def test_local_photo_storage_save_manifest(tmp_path: Path) -> None:
     resolver = PathResolver(base_dir=tmp_path)
     storage = LocalPhotoStorage(path_resolver=resolver)
 
-    summary = PhotoEnrichSummary(
+    summary = TravelPhotoEnrichSummary(
         database_name="行程安排",
         provider="playwright",
         total_items=1,

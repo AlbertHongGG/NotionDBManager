@@ -4,7 +4,6 @@ from notion_db_manager.core.config import (
     ConfigurationResolver,
     EnvLoader,
     NotionConnectionConfig,
-    Settings,
     TravelPhotoEnrichConfig,
 )
 
@@ -38,7 +37,6 @@ __all__ = [
     "NotionConnectionConfig",
     "NotionGatewayError",
     "ORDER_PROPERTY",
-    "Settings",
     "StorageError",
     "TravelPhotoEnrichConfig",
     "ValidationError",

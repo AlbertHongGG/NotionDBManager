@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from notion_db_manager.core.config import EnvLoader, NotionConnectionConfig, Settings
+from notion_db_manager.core.config import EnvLoader, NotionConnectionConfig
 
 
 def resolve_settings(args: argparse.Namespace) -> NotionConnectionConfig:

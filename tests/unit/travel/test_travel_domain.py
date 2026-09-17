@@ -4,9 +4,8 @@ import pytest
 
 from notion_db_manager.domain.models.page import Page
 from notion_db_manager.domain.properties import MultiSelectProperty, RichTextProperty, TitleProperty, UrlProperty
-from notion_db_manager.domain.travel.places import (
+from notion_db_manager.domain.travel import (
     EnrichItemResult,
-    PhotoEnrichSummary,
     PhotoProviderType,
     PlaceItem,
     PlacePhoto,

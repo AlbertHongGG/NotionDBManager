@@ -5,7 +5,7 @@ from typing import Any
 from notion_db_manager.application.interfaces.photo_provider import PlacePhotoProvider
 from notion_db_manager.core.config import TravelPhotoEnrichConfig
 from notion_db_manager.core.exceptions import ConfigurationError, ValidationError
-from notion_db_manager.domain.travel.places import PhotoProviderType
+from notion_db_manager.domain.travel import PhotoProviderType
 from notion_db_manager.infrastructure.photos.google_places import GooglePlacesPhotoProvider
 from notion_db_manager.infrastructure.photos.playwright_provider import PlaywrightPhotoProvider
 
@@ -29,7 +29,7 @@ class PhotoProviderFactory:
         return 1
 
     @classmethod
-    def create_from_config(
+    def create(
         cls,
         config: TravelPhotoEnrichConfig,
         headless: bool = True,
@@ -51,20 +51,3 @@ class PhotoProviderFactory:
             raise ValidationError(
                 f"未知的照片提供者: '{config.provider}'。可用選項為 'playwright' (預設) 或 'google'。"
             )
-
-    @classmethod
-    def create(
-        cls,
-        provider_type: PhotoProviderType | str,
-        google_api_key: str | None = None,
-        headless: bool = True,
-    ) -> PlacePhotoProvider:
-        """Backward-compatible factory method delegating to create_from_config."""
-        raw_val = provider_type.value if isinstance(provider_type, PhotoProviderType) else str(provider_type).lower()
-        enrich_config = TravelPhotoEnrichConfig(
-            provider=raw_val,
-            concurrency=cls.get_default_concurrency(raw_val),
-            google_api_key=google_api_key,
-        )
-        return cls.create_from_config(enrich_config, headless=headless)
-

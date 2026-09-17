@@ -6,7 +6,7 @@ from typing import Callable
 from notion_db_manager.application.interfaces.photo_provider import PhotoStorage, PlacePhotoProvider
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models.page import Page
-from notion_db_manager.domain.travel.places import EnrichItemResult, PlaceItem, TravelPhotoEnrichSummary
+from notion_db_manager.domain.travel import EnrichItemResult, PlaceItem, TravelPhotoEnrichSummary
 
 ProgressCallback = Callable[[int, int, PlaceItem, str], None]
 
@@ -179,6 +179,3 @@ class TravelEnrichPhotosCommand:
             )
         )
 
-
-# Alias for compatibility
-EnrichPlacePhotosCommand = TravelEnrichPhotosCommand

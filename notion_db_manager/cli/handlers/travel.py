@@ -3,14 +3,14 @@ from __future__ import annotations
 import argparse
 from typing import Callable
 
-from notion_db_manager.application.travel import TravelEnrichPhotosCommand
+from notion_db_manager.application.commands.travel import TravelEnrichPhotosCommand
 from notion_db_manager.cli.handlers.base import ActionHandler
 from notion_db_manager.cli.prompt import resolve_settings
 from notion_db_manager.cli.runner import AsyncCommandRunner
 from notion_db_manager.core.config import ConfigurationResolver
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models import DatabaseQuery, PageReference
-from notion_db_manager.domain.travel.places import PlaceItem, TravelPhotoEnrichSummary
+from notion_db_manager.domain.travel import PlaceItem, TravelPhotoEnrichSummary
 from notion_db_manager.infrastructure.notion import NotionGatewayImpl, NotionHttpClient
 from notion_db_manager.infrastructure.photos import LocalPhotoStorage, PhotoProviderFactory, sanitize_filename
 from notion_db_manager.infrastructure.storage import JsonDocumentStorage, PathResolver
@@ -65,7 +65,7 @@ class TravelHandler(ActionHandler):
             default_concurrency=default_concurrency,
         )
 
-        provider = PhotoProviderFactory.create_from_config(config)
+        provider = PhotoProviderFactory.create(config)
         photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
 
         def on_progress(idx: int, total: int, item: PlaceItem, status: str) -> None:
