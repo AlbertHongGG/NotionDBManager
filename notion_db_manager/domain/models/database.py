@@ -38,6 +38,11 @@ class Database:
     title_property_name: str
     order_property_name: str = ORDER_PROPERTY
     parent: DatabaseParent | None = None
+    data_source_id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.data_source_id:
+            object.__setattr__(self, "data_source_id", self.id)
 
     def has_property(self, name: str) -> bool:
         return name in self.properties

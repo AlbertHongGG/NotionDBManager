@@ -106,6 +106,7 @@ def test_configuration_resolver_travel_photo(tmp_path: Path, monkeypatch) -> Non
 
     # Clear env
     monkeypatch.delenv("NOTION_DB_MANAGER_CONCURRENCY", raising=False)
+    monkeypatch.delenv("NOTION_DB_MANAGER_ENRICH_CONCURRENCY", raising=False)
     monkeypatch.delenv("GOOGLE_MAP_API", raising=False)
     monkeypatch.delenv("GOOGLE_MAPS_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
@@ -117,10 +118,15 @@ def test_configuration_resolver_travel_photo(tmp_path: Path, monkeypatch) -> Non
     assert res1.concurrency == 3
     assert res1.clean_directory is True
 
-    # 2. Env overrides default
+    # 2. General Env overrides default
     monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "6")
     res2 = ConfigurationResolver.resolve_travel_photo_config(args1, default_concurrency=3, env_path=empty_env)
     assert res2.concurrency == 6
+
+    # 2b. Specific ENRICH Env overrides General Env
+    monkeypatch.setenv("NOTION_DB_MANAGER_ENRICH_CONCURRENCY", "8")
+    res2b = ConfigurationResolver.resolve_travel_photo_config(args1, default_concurrency=3, env_path=empty_env)
+    assert res2b.concurrency == 8
 
     # 3. CLI overrides env
     args3 = argparse.Namespace(concurrency=2, provider="google", no_clean=True, google_api_key="cli_key")
@@ -143,6 +149,7 @@ def test_resolve_travel_push_config(tmp_path: Path, monkeypatch) -> None:
     empty_env = tmp_path / ".env"
     empty_env.write_text("", encoding="utf-8")
     monkeypatch.delenv("NOTION_DB_MANAGER_CONCURRENCY", raising=False)
+    monkeypatch.delenv("NOTION_DB_MANAGER_PUSH_CONCURRENCY", raising=False)
 
     # 1. Default resolution
     args = argparse.Namespace(token="token_abc", database_name="db_1")
@@ -151,6 +158,21 @@ def test_resolve_travel_push_config(tmp_path: Path, monkeypatch) -> None:
     assert cfg.database_name == "db_1"
     assert cfg.concurrency == 2
     assert cfg.delay == 0.2
+
+    # 1b. General concurrency <= 3 is inherited
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "3")
+    cfg_inherited = ConfigurationResolver.resolve_travel_push_config(args, env_path=empty_env)
+    assert cfg_inherited.concurrency == 3
+
+    # 1c. General concurrency > 3 (e.g. 4 for download) safely falls back to default 2 for push
+    monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "4")
+    cfg_safe_fallback = ConfigurationResolver.resolve_travel_push_config(args, env_path=empty_env)
+    assert cfg_safe_fallback.concurrency == 2
+
+    # 1d. Dedicated push concurrency env overrides general concurrency
+    monkeypatch.setenv("NOTION_DB_MANAGER_PUSH_CONCURRENCY", "3")
+    cfg_dedicated = ConfigurationResolver.resolve_travel_push_config(args, env_path=empty_env)
+    assert cfg_dedicated.concurrency == 3
 
     # 2. Concurrency capped at MAX_PUSH_CONCURRENCY
     args_over_cap = argparse.Namespace(token="token_abc", database_name="db_1", concurrency=4)
@@ -162,7 +184,7 @@ def test_resolve_travel_push_config(tmp_path: Path, monkeypatch) -> None:
     with pytest.raises(ValidationError, match=f"最高為 {MAX_PUSH_CONCURRENCY}"):
         ConfigurationResolver.resolve_travel_push_config(args_zero, env_path=empty_env)
 
-    # 4. Valid custom concurrency (3)
+    # 4. Valid custom concurrency (3) via CLI
     args_valid = argparse.Namespace(token="token_abc", database_name="db_1", concurrency=3, delay=0.5)
     cfg_valid = ConfigurationResolver.resolve_travel_push_config(args_valid, env_path=empty_env)
     assert cfg_valid.concurrency == 3

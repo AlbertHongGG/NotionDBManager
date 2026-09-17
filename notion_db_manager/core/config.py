@@ -13,6 +13,8 @@ ENV_DB_ID_KEYS = ("NOTION_DB_MANAGER_DATABASE_ID", "NOTION_DATABASE_ID")
 ENV_PAGE_KEYS = ("NOTION_DB_MANAGER_PAGE", "NOTION_PAGE", "NOTION_DB_MANAGER_PARENT_PAGE", "NOTION_PARENT_PAGE")
 ENV_GOOGLE_MAP_KEYS = ("GOOGLE_MAP_API", "GOOGLE_MAPS_API_KEY", "GOOGLE_PLACES_API_KEY")
 ENV_CONCURRENCY_KEY = "NOTION_DB_MANAGER_CONCURRENCY"
+ENV_PUSH_CONCURRENCY_KEY = "NOTION_DB_MANAGER_PUSH_CONCURRENCY"
+ENV_ENRICH_CONCURRENCY_KEY = "NOTION_DB_MANAGER_ENRICH_CONCURRENCY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +165,39 @@ class EnvLoader:
             raise ConfigurationError(f"環境變數 {ENV_CONCURRENCY_KEY} 必須為大於或等於 1 的正整數，收到: {val_int}")
         return val_int
 
+    @staticmethod
+    def get_push_concurrency() -> int | None:
+        val = os.getenv(ENV_PUSH_CONCURRENCY_KEY)
+        if val is None:
+            return None
+        cleaned = val.strip()
+        if not cleaned:
+            return None
+        try:
+            val_int = int(cleaned)
+        except ValueError as exc:
+            raise ConfigurationError(f"環境變數 {ENV_PUSH_CONCURRENCY_KEY} 必須為整數，收到: {cleaned}") from exc
+        if val_int < 1:
+            raise ConfigurationError(f"環境變數 {ENV_PUSH_CONCURRENCY_KEY} 必須為大於或等於 1 的正整數，收到: {val_int}")
+        return val_int
+
+    @staticmethod
+    def get_enrich_concurrency() -> int | None:
+        val = os.getenv(ENV_ENRICH_CONCURRENCY_KEY)
+        if val is None:
+            return None
+        cleaned = val.strip()
+        if not cleaned:
+            return None
+        try:
+            val_int = int(cleaned)
+        except ValueError as exc:
+            raise ConfigurationError(f"環境變數 {ENV_ENRICH_CONCURRENCY_KEY} 必須為整數，收到: {cleaned}") from exc
+        if val_int < 1:
+            raise ConfigurationError(f"環境變數 {ENV_ENRICH_CONCURRENCY_KEY} 必須為大於或等於 1 的正整數，收到: {val_int}")
+        return val_int
+
+
 
 class ConfigurationResolver:
     """Unified resolver managing configuration hierarchy (CLI args > .env > Domain defaults)."""
@@ -194,7 +229,7 @@ class ConfigurationResolver:
 
         provider = getattr(args, "provider", "playwright") or "playwright"
 
-        # Concurrency resolution: CLI -> .env -> Provider default
+        # Concurrency resolution: CLI -> .env(ENRICH) -> .env(GENERAL) -> Provider default
         cli_concurrency = getattr(args, "concurrency", None)
         if cli_concurrency is not None:
             if cli_concurrency < 1:
@@ -202,8 +237,12 @@ class ConfigurationResolver:
                 raise ValidationError(f"--concurrency 必須為大於或等於 1 的正整數，收到: {cli_concurrency}")
             concurrency = cli_concurrency
         else:
-            env_concurrency = EnvLoader.get_concurrency()
-            concurrency = env_concurrency if env_concurrency is not None else default_concurrency
+            enrich_concurrency = EnvLoader.get_enrich_concurrency()
+            if enrich_concurrency is not None:
+                concurrency = enrich_concurrency
+            else:
+                env_concurrency = EnvLoader.get_concurrency()
+                concurrency = env_concurrency if env_concurrency is not None else default_concurrency
 
         # Google API Key resolution: CLI -> .env
         google_api_key = getattr(args, "google_api_key", None) or EnvLoader.get_google_map_api()
@@ -237,13 +276,20 @@ class ConfigurationResolver:
         raw_input = getattr(args, "input", None)
         input_manifest = Path(raw_input) if raw_input else None
 
-        # Concurrency resolution: CLI -> .env -> default (2)
+        # Concurrency resolution: CLI -> .env(PUSH) -> .env(GENERAL, if <= 3) -> default (2)
         cli_concurrency = getattr(args, "concurrency", None)
         if cli_concurrency is not None:
             concurrency = cli_concurrency
         else:
-            env_concurrency = EnvLoader.get_concurrency()
-            concurrency = env_concurrency if env_concurrency is not None else 2
+            push_concurrency = EnvLoader.get_push_concurrency()
+            if push_concurrency is not None:
+                concurrency = push_concurrency
+            else:
+                env_concurrency = EnvLoader.get_concurrency()
+                if env_concurrency is not None and env_concurrency <= 3:
+                    concurrency = env_concurrency
+                else:
+                    concurrency = 2
 
         raw_delay = getattr(args, "delay", None)
         delay = float(raw_delay) if raw_delay is not None else 0.2

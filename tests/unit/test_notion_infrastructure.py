@@ -123,3 +123,104 @@ def test_notion_gateway_archive_pages_in_trash() -> None:
     mock_client.request.assert_any_call("PATCH", "/pages/page-1", {"in_trash": True})
     mock_client.request.assert_any_call("PATCH", "/pages/page-2", {"in_trash": True})
 
+
+def test_notion_mapper_data_source() -> None:
+    ds_raw = {
+        "id": "ds-456",
+        "name": "Trip Schedule DS",
+        "parent": {"type": "database_id", "database_id": "db-container-123"},
+        "properties": {
+            "Item": {"type": "title", "title": {}},
+            "__NDM_INDEX__": {"type": "number", "number": {}},
+        },
+    }
+    db_raw = {
+        "id": "db-container-123",
+        "title": [{"plain_text": "Trip Schedule"}],
+        "parent": {"type": "page_id", "page_id": "page-nagoya-789"},
+        "data_sources": [{"id": "ds-456", "name": "Trip Schedule DS"}],
+    }
+
+    db = NotionMapper.database_from_data_source(ds_raw, db_raw)
+    assert db.id == "db-container-123"
+    assert db.data_source_id == "ds-456"
+    assert db.name == "Trip Schedule"
+    assert db.title_property_name == "Item"
+    assert db.has_property("__NDM_INDEX__")
+    assert db.parent is not None
+    assert db.parent.parent_id == "page-nagoya-789"
+
+
+def test_notion_gateway_data_source_operations() -> None:
+    mock_client = MagicMock()
+    gateway = NotionGatewayImpl(client=mock_client)
+
+    ds_raw = {
+        "id": "ds-456",
+        "name": "Trip Schedule DS",
+        "parent": {"type": "database_id", "database_id": "db-container-123"},
+        "properties": {
+            "Item": {"type": "title", "title": {}},
+        },
+    }
+    db_raw = {
+        "id": "db-container-123",
+        "title": [{"plain_text": "Trip Schedule"}],
+        "parent": {"type": "page_id", "page_id": "page-nagoya-789"},
+        "data_sources": [{"id": "ds-456", "name": "Trip Schedule DS"}],
+    }
+
+    db = NotionMapper.database_from_data_source(ds_raw, db_raw)
+
+    # 1. Test create_page uses parent.data_source_id
+    mock_client.request.return_value = {
+        "id": "new-row-id",
+        "properties": {
+            "Item": {"type": "title", "title": [{"plain_text": "Flight"}]},
+            "__NDM_INDEX__": {"type": "number", "number": 1},
+        },
+    }
+    page = Page(index=1, properties={"Item": TitleProperty("Flight")})
+    created = gateway.create_page(db, page)
+    assert created.id == "new-row-id"
+    mock_client.request.assert_called_with(
+        "POST",
+        "/pages",
+        {
+            "parent": {"data_source_id": "ds-456"},
+            "properties": {
+                "Item": {"title": [{"type": "text", "text": {"content": "Flight"}}]},
+                "__NDM_INDEX__": {"number": 1},
+            },
+        },
+    )
+
+    # 2. Test get_ordered_pages queries /data_sources/{data_source_id}/query
+    mock_client.request.return_value = {
+        "results": [
+            {
+                "id": "row-1",
+                "properties": {
+                    "Item": {"type": "title", "title": [{"plain_text": "Flight"}]},
+                    "__NDM_INDEX__": {"type": "number", "number": 1},
+                },
+            }
+        ],
+        "has_more": False,
+    }
+    pages = gateway.get_ordered_pages(db)
+    assert len(pages) == 1
+    assert pages[0].id == "row-1"
+    mock_client.request.assert_called_with(
+        "POST",
+        "/data_sources/ds-456/query",
+        {
+            "page_size": 100,
+            "sorts": [
+                {"property": "__NDM_INDEX__", "direction": "ascending"},
+                {"timestamp": "created_time", "direction": "ascending"},
+            ],
+        },
+    )
+
+

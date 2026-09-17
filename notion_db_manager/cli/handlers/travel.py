@@ -128,6 +128,25 @@ class TravelHandler(ActionHandler):
         gateway = NotionGatewayImpl(client=client)
         photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
 
+        # Resolve canonical database name from Notion if manifest is not explicitly passed
+        target_db_name = db_name
+        if not push_config.input_manifest and (db_name or push_config.database_id):
+            parent_ref = PageReference.from_raw(push_config.page) if push_config.page else None
+            query = DatabaseQuery(
+                database_name=db_name,
+                database_id=push_config.database_id,
+                parent_page=parent_ref,
+            )
+            try:
+                database = gateway.locate_database(query)
+                cand_path = photo_storage.get_images_dir(database.name) / "manifest.json"
+                if cand_path.is_file():
+                    target_db_name = database.name
+                elif not target_db_name:
+                    target_db_name = database.name
+            except Exception:
+                pass
+
         def on_progress(idx: int, total: int, name: str, status: str) -> None:
             print(f"[{idx}/{total}] {name}: {status}")
 
@@ -139,7 +158,7 @@ class TravelHandler(ActionHandler):
 
         async def _run() -> TravelPhotoPushSummary:
             return await cmd.execute(
-                database_name=db_name,
+                database_name=target_db_name,
                 custom_manifest=push_config.input_manifest,
                 concurrency=push_config.concurrency,
                 delay=push_config.delay,
