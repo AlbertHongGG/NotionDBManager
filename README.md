@@ -33,6 +33,11 @@ GOOGLE_MAP_API=AIzaSy_xxx
 
 # [選填] 並發數量 (預設: playwright=3, google=8)
 NOTION_DB_MANAGER_CONCURRENCY=3
+# [選填] 照片上傳至 Notion 並發數 (預設: 2, 上限: 3)
+NOTION_DB_MANAGER_PUSH_CONCURRENCY=2
+# [選填] 照片獲取是否預設僅補全空缺項目 (預設: false)
+# NOTION_DB_MANAGER_MISSING_ONLY=true
+
 ```
 
 - **優先順序**：命令列參數 > 環境變數 / `.env` > 終端互動輸入
@@ -86,7 +91,8 @@ NOTION_DB_MANAGER_CONCURRENCY=3
 
 | 指令 | 說明 | 必要與可選參數 |
 | :--- | :--- | :--- |
-| `enrich-photos` | 自動為旅遊地點獲取代表相片並儲存至本地 | `--provider <playwright\|google>` [選填，預設 `playwright`]: 爬蟲或官方 Places API<br>`--input <PATH>` [選填]: 讀取本機匯出 JSON (如未提供則即時從 Notion 取得)<br>`--categories <CAT1> <CAT2>...` [選填]: 篩選特定類別 (若未指定則處理全部，包含交通)<br>`-c, --concurrency <INT>` [選填]: 並發抓取數量 (預設: playwright=3, google=8，亦可透過 `NOTION_DB_MANAGER_CONCURRENCY` 設定)<br>`--no-clean` [選填]: 執行前不清除輸出目錄中的舊圖<br>`--google-api-key <KEY>` [選填]: Google Cloud Places API 金鑰 |
+| `enrich-photos` | 自動為旅遊地點獲取代表相片並儲存至本機 `output/images/<資料庫名稱>/`，產生 `manifest.json` | `--missing-only` [選填]: 僅抓取 Notion 中「照片」欄位仍為空的地點，已有照片者自動略過 (預設: 關閉，全數抓取)<br>`--provider <playwright\|google>` [選填，預設 `playwright`]: 爬蟲或官方 Places API<br>`--categories <CAT1> <CAT2>...` [選填]: 篩選特定類別 (若未指定則處理全部，包含交通)<br>`-c, --concurrency <INT>` [選填]: 並發抓取數量 (預設: playwright=3, google=8，亦可透過 `NOTION_DB_MANAGER_CONCURRENCY` 設定)<br>`--no-clean` [選填]: 執行前不清除輸出目錄中的舊圖 (預設會清空舊圖)<br>`--input <PATH>` [選填]: 讀取本機匯出的 JSON 檔 (離線模式，免呼叫 Notion API)<br>`--google-api-key <KEY>` [選填]: Google Cloud Places API 金鑰 |
+| `push-photos` | 將本機已獲取的相片透過 Notion 官方 File Uploads API 原生上傳，並回填至資料庫「照片」欄位 | `-i, --input <PATH>` [選填]: 指定 `manifest.json` 檔案路徑 (預設為 `output/images/<資料庫名稱>/manifest.json`)<br>`-c, --concurrency <INT>` [選填]: 並發上傳數量 (預設: 2, 上限: 3，受 Notion 速率保護) |
 
 ---
 
@@ -131,19 +137,25 @@ notion-db-manager writer write-rows --input rows.json --mode insert --index 2
 notion-db-manager writer write-rows --input rows.json --mode overwrite --index 5
 ```
 
-### 旅遊照片獲取 (Travel)
+### 旅遊照片獲取與回填 (Travel)
 ```bash
-# 1. 預設使用 Playwright 爬蟲 (抓取所有項目包含交通，並寫入 output/images/<資料庫名稱>/)
+# 1. 全量抓取照片 (預設使用 Playwright 爬蟲，抓取所有項目包含交通，並寫入 output/images/<資料庫名稱>/)
 notion-db-manager travel enrich-photos
 
-# 2. 使用 Google Places API (讀取 .env 中的 GOOGLE_MAP_API，極速下載官方原圖)
+# 2. 增量補全照片 (僅抓取 Notion「照片」欄位為空的地點，已有照片者自動略過)
+notion-db-manager travel enrich-photos --missing-only
+
+# 3. 篩選特定標籤 (如僅限景點與用餐) 並設定並發數為 4
+notion-db-manager travel enrich-photos --categories 景點 用餐 --concurrency 4
+
+# 4. 使用 Google Places API (讀取 .env 中的 GOOGLE_MAP_API，極速下載官方原圖)
 notion-db-manager travel enrich-photos --provider google
 
-# 3. 指定本機已匯出的 JSON 檔 (離線模式，免呼叫 Notion API)
+# 5. 指定本機已匯出的 JSON 檔 (離線模式，免呼叫 Notion API)
 notion-db-manager travel enrich-photos --input output/20260917_045325_export-all.json --provider google
 
-# 4. 只抓取特定標籤 (如僅限景點與用餐) 並設定並發數為 4
-notion-db-manager travel enrich-photos --categories 景點 用餐 --provider google --concurrency 4
+# 6. 上傳本機照片回填 Notion (將 output/images/<資料庫名稱>/ 中的照片原生上傳至 Notion「照片」欄位)
+notion-db-manager travel push-photos
 ```
 
 ---
