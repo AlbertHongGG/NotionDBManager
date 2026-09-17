@@ -110,6 +110,8 @@ def test_configuration_resolver_travel_photo(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("GOOGLE_MAP_API", raising=False)
     monkeypatch.delenv("GOOGLE_MAPS_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+    monkeypatch.delenv("NOTION_DB_MANAGER_MISSING_ONLY", raising=False)
+    monkeypatch.delenv("MISSING_ONLY", raising=False)
 
     # 1. Fallback to default
     args1 = argparse.Namespace()
@@ -117,11 +119,14 @@ def test_configuration_resolver_travel_photo(tmp_path: Path, monkeypatch) -> Non
     assert res1.provider == "playwright"
     assert res1.concurrency == 3
     assert res1.clean_directory is True
+    assert res1.missing_only is False
 
     # 2. General Env overrides default
     monkeypatch.setenv("NOTION_DB_MANAGER_CONCURRENCY", "6")
+    monkeypatch.setenv("NOTION_DB_MANAGER_MISSING_ONLY", "true")
     res2 = ConfigurationResolver.resolve_travel_photo_config(args1, default_concurrency=3, env_path=empty_env)
     assert res2.concurrency == 6
+    assert res2.missing_only is True
 
     # 2b. Specific ENRICH Env overrides General Env
     monkeypatch.setenv("NOTION_DB_MANAGER_ENRICH_CONCURRENCY", "8")
@@ -129,17 +134,42 @@ def test_configuration_resolver_travel_photo(tmp_path: Path, monkeypatch) -> Non
     assert res2b.concurrency == 8
 
     # 3. CLI overrides env
-    args3 = argparse.Namespace(concurrency=2, provider="google", no_clean=True, google_api_key="cli_key")
+    args3 = argparse.Namespace(concurrency=2, provider="google", no_clean=True, google_api_key="cli_key", missing_only=False)
     res3 = ConfigurationResolver.resolve_travel_photo_config(args3, default_concurrency=3, env_path=empty_env)
     assert res3.provider == "google"
     assert res3.concurrency == 2
     assert res3.clean_directory is False
     assert res3.google_api_key == "cli_key"
+    assert res3.missing_only is False
+
+    # 3b. CLI missing_only=True
+    args3b = argparse.Namespace(missing_only=True)
+    res3b = ConfigurationResolver.resolve_travel_photo_config(args3b, default_concurrency=3, env_path=empty_env)
+    assert res3b.missing_only is True
 
     # 4. Invalid CLI concurrency raises ValidationError
     args_invalid = argparse.Namespace(concurrency=0)
     with pytest.raises(ValidationError, match="大於或等於 1"):
         ConfigurationResolver.resolve_travel_photo_config(args_invalid, default_concurrency=3, env_path=empty_env)
+
+
+def test_env_loader_missing_only(monkeypatch) -> None:
+    monkeypatch.delenv("NOTION_DB_MANAGER_MISSING_ONLY", raising=False)
+    monkeypatch.delenv("MISSING_ONLY", raising=False)
+    assert EnvLoader.get_missing_only() is None
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_MISSING_ONLY", "true")
+    assert EnvLoader.get_missing_only() is True
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_MISSING_ONLY", "1")
+    assert EnvLoader.get_missing_only() is True
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_MISSING_ONLY", "false")
+    assert EnvLoader.get_missing_only() is False
+
+    monkeypatch.setenv("NOTION_DB_MANAGER_MISSING_ONLY", "0")
+    assert EnvLoader.get_missing_only() is False
+
 
 
 def test_resolve_travel_push_config(tmp_path: Path, monkeypatch) -> None:

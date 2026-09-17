@@ -15,6 +15,11 @@ class FileProperty(BasePropertyValue):
     def value(self) -> list[dict[str, Any]]:
         return list(self._value)
 
+    def has_files(self) -> bool:
+        """Returns True if this property contains one or more files."""
+        return len(self._value) > 0
+
+
     def to_notion_payload(self) -> dict[str, Any]:
         files_payload: list[dict[str, Any]] = []
         for item in self._value:

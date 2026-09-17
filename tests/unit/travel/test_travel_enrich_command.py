@@ -175,3 +175,98 @@ def test_travel_enrich_photos_empty_pages(mock_storage: MagicMock) -> None:
     assert summary.processed_count == 0
     assert summary.items == []
     assert mock_storage.save_manifest.call_count == 1
+
+
+def test_travel_enrich_photos_command_missing_only_skips_existing(mock_storage: MagicMock) -> None:
+    from notion_db_manager.domain.properties.file import FileProperty
+
+    provider = MagicMock(spec=PlacePhotoProvider)
+    dummy_photo = PlacePhoto(
+        data=b"img",
+        mime_type="image/jpeg",
+        extension="jpg",
+        source_url="https://example.com/img.jpg",
+    )
+    provider.fetch_photo = AsyncMock(return_value=dummy_photo)
+
+    pages = [
+        Page(
+            id="p1",
+            index=1,
+            properties={
+                "地點": TitleProperty("已有照片地點"),
+                "照片": FileProperty([{"name": "01.jpg", "url": "https://example.com/01.jpg"}]),
+            },
+        ),
+        Page(
+            id="p2",
+            index=2,
+            properties={
+                "地點": TitleProperty("空缺照片地點"),
+                "照片": FileProperty([]),
+            },
+        ),
+    ]
+
+    cmd = TravelEnrichPhotosCommand(provider, mock_storage)
+    summary = cmd.execute_sync("行程安排", pages, missing_only=True, provider_name="google")
+
+    assert summary.total_items == 2
+    assert summary.processed_count == 1
+    assert summary.skipped_count == 1
+    assert summary.success_count == 1
+
+    # Item 1 was skipped due to existing photo
+    assert summary.items[0].status == "skipped"
+    assert summary.items[0].error_message == "已有相片 (略過)"
+
+    # Item 2 was enriched successfully
+    assert summary.items[1].status == "success"
+
+    # fetch_photo should have been called only once (for item 2)
+    assert provider.fetch_photo.call_count == 1
+    call_args = provider.fetch_photo.call_args[0][0]
+    assert call_args.name == "空缺照片地點"
+
+
+def test_travel_enrich_photos_command_default_fetches_all(mock_storage: MagicMock) -> None:
+    from notion_db_manager.domain.properties.file import FileProperty
+
+    provider = MagicMock(spec=PlacePhotoProvider)
+    dummy_photo = PlacePhoto(
+        data=b"img",
+        mime_type="image/jpeg",
+        extension="jpg",
+        source_url="https://example.com/img.jpg",
+    )
+    provider.fetch_photo = AsyncMock(return_value=dummy_photo)
+
+    pages = [
+        Page(
+            id="p1",
+            index=1,
+            properties={
+                "地點": TitleProperty("已有照片地點"),
+                "照片": FileProperty([{"name": "01.jpg", "url": "https://example.com/01.jpg"}]),
+            },
+        ),
+        Page(
+            id="p2",
+            index=2,
+            properties={
+                "地點": TitleProperty("空缺照片地點"),
+                "照片": FileProperty([]),
+            },
+        ),
+    ]
+
+    cmd = TravelEnrichPhotosCommand(provider, mock_storage)
+    # missing_only=False (default)
+    summary = cmd.execute_sync("行程安排", pages, missing_only=False, provider_name="google")
+
+    assert summary.total_items == 2
+    assert summary.processed_count == 2
+    assert summary.skipped_count == 0
+    assert summary.success_count == 2
+    assert provider.fetch_photo.call_count == 2
+

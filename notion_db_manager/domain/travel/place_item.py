@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from notion_db_manager.domain.models.page import Page
-from notion_db_manager.domain.properties import MultiSelectProperty, TitleProperty
+from notion_db_manager.domain.properties import FileProperty, MultiSelectProperty, TitleProperty
 
 
 @dataclass(slots=True)
@@ -15,6 +15,7 @@ class PlaceItem:
     alias: str | None = None
     categories: list[str] = field(default_factory=list)
     navigation_url: str | None = None
+    has_photo: bool = False
 
     @classmethod
     def from_page(cls, page: Page) -> PlaceItem:
@@ -55,6 +56,22 @@ class PlaceItem:
             if url_prop.value:
                 navigation_url = str(url_prop.value).strip()
 
+        # Extract photo presence ("照片" or any FileProperty)
+        has_photo = False
+        if "照片" in props:
+            photo_prop = props["照片"]
+            if isinstance(photo_prop, FileProperty):
+                has_photo = photo_prop.has_files()
+            elif isinstance(getattr(photo_prop, "value", None), list):
+                has_photo = len(photo_prop.value) > 0
+            elif getattr(photo_prop, "value", None):
+                has_photo = True
+        else:
+            for prop in props.values():
+                if isinstance(prop, FileProperty) and prop.has_files():
+                    has_photo = True
+                    break
+
         return cls(
             page_id=page.id or "",
             index=page.index,
@@ -62,6 +79,7 @@ class PlaceItem:
             alias=alias,
             categories=categories,
             navigation_url=navigation_url,
+            has_photo=has_photo,
         )
 
     def is_target(self, allowed_categories: set[str] | None = None) -> bool:

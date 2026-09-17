@@ -15,6 +15,7 @@ ENV_GOOGLE_MAP_KEYS = ("GOOGLE_MAP_API", "GOOGLE_MAPS_API_KEY", "GOOGLE_PLACES_A
 ENV_CONCURRENCY_KEY = "NOTION_DB_MANAGER_CONCURRENCY"
 ENV_PUSH_CONCURRENCY_KEY = "NOTION_DB_MANAGER_PUSH_CONCURRENCY"
 ENV_ENRICH_CONCURRENCY_KEY = "NOTION_DB_MANAGER_ENRICH_CONCURRENCY"
+ENV_MISSING_ONLY_KEYS = ("NOTION_DB_MANAGER_MISSING_ONLY", "MISSING_ONLY")
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +42,7 @@ class TravelPhotoEnrichConfig:
     concurrency: int
     categories: list[str] | None = None
     clean_directory: bool = True
+    missing_only: bool = False
     google_api_key: str | None = None
 
     def __post_init__(self) -> None:
@@ -197,6 +199,19 @@ class EnvLoader:
             raise ConfigurationError(f"環境變數 {ENV_ENRICH_CONCURRENCY_KEY} 必須為大於或等於 1 的正整數，收到: {val_int}")
         return val_int
 
+    @staticmethod
+    def get_missing_only() -> bool | None:
+        for key in ENV_MISSING_ONLY_KEYS:
+            val = os.getenv(key)
+            if val is not None:
+                cleaned = val.strip().lower()
+                if cleaned in ("1", "true", "yes", "on"):
+                    return True
+                if cleaned in ("0", "false", "no", "off"):
+                    return False
+        return None
+
+
 
 
 class ConfigurationResolver:
@@ -250,11 +265,20 @@ class ConfigurationResolver:
         categories = getattr(args, "categories", None)
         clean_directory = not getattr(args, "no_clean", False)
 
+        # missing_only resolution: CLI (--missing-only) -> .env -> False (default)
+        cli_missing_only = getattr(args, "missing_only", None)
+        if cli_missing_only is not None:
+            missing_only = bool(cli_missing_only)
+        else:
+            env_missing_only = EnvLoader.get_missing_only()
+            missing_only = env_missing_only if env_missing_only is not None else False
+
         return TravelPhotoEnrichConfig(
             provider=provider,
             concurrency=concurrency,
             categories=categories,
             clean_directory=clean_directory,
+            missing_only=missing_only,
             google_api_key=google_api_key,
         )
 

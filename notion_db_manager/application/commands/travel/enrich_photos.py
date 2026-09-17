@@ -42,6 +42,7 @@ class TravelEnrichPhotosCommand:
         categories: list[str] | None = None,
         provider_name: str = "unknown",
         clean_directory: bool = True,
+        missing_only: bool = False,
         concurrency: int = 1,
     ) -> TravelPhotoEnrichSummary:
         if concurrency < 1:
@@ -95,6 +96,19 @@ class TravelEnrichPhotosCommand:
                             name=item.name,
                             status="skipped",
                             categories=item.categories,
+                            error_message="不符類別篩選",
+                        )
+                        continue
+
+                    if missing_only and item.has_photo:
+                        self._report(item.index, total_count, item, "略過 (已有相片)")
+                        results[slot_idx] = EnrichItemResult(
+                            index=item.index,
+                            page_id=item.page_id,
+                            name=item.name,
+                            status="skipped",
+                            categories=item.categories,
+                            error_message="已有相片 (略過)",
                         )
                         continue
 
@@ -169,6 +183,7 @@ class TravelEnrichPhotosCommand:
         categories: list[str] | None = None,
         provider_name: str = "unknown",
         clean_directory: bool = True,
+        missing_only: bool = False,
         concurrency: int = 1,
     ) -> TravelPhotoEnrichSummary:
         """Synchronous wrapper for execute."""
@@ -179,6 +194,7 @@ class TravelEnrichPhotosCommand:
                 categories=categories,
                 provider_name=provider_name,
                 clean_directory=clean_directory,
+                missing_only=missing_only,
                 concurrency=concurrency,
             )
         )

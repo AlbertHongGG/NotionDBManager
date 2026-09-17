@@ -103,6 +103,7 @@ class TravelHandler(ActionHandler):
                     categories=config.categories,
                     provider_name=config.provider,
                     clean_directory=config.clean_directory,
+                    missing_only=config.missing_only,
                     concurrency=config.concurrency,
                 )
             finally:

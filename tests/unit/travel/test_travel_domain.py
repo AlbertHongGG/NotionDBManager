@@ -164,3 +164,56 @@ def test_travel_context_value_object() -> None:
     with pytest.raises(AttributeError):
         context.images_dir = Path("other")  # type: ignore[misc]
 
+
+def test_file_property_has_files() -> None:
+    from notion_db_manager.domain.properties import FileProperty
+
+    empty_prop = FileProperty([])
+    assert empty_prop.has_files() is False
+
+    none_prop = FileProperty(None)
+    assert none_prop.has_files() is False
+
+    filled_prop = FileProperty([{"name": "photo.jpg", "url": "https://example.com/p.jpg"}])
+    assert filled_prop.has_files() is True
+
+
+def test_place_item_has_photo_detection() -> None:
+    from notion_db_manager.domain.properties import FileProperty
+
+    # Case 1: Page with populated "照片" property
+    page_with_photo = Page(
+        id="p1",
+        index=1,
+        properties={
+            "地點": TitleProperty("手長足長像"),
+            "照片": FileProperty([{"name": "01.jpg", "url": "https://example.com/01.jpg"}]),
+        },
+    )
+    item1 = PlaceItem.from_page(page_with_photo)
+    assert item1.has_photo is True
+
+    # Case 2: Page with empty "照片" property
+    page_empty_photo = Page(
+        id="p2",
+        index=2,
+        properties={
+            "地點": TitleProperty("高山車站"),
+            "照片": FileProperty([]),
+        },
+    )
+    item2 = PlaceItem.from_page(page_empty_photo)
+    assert item2.has_photo is False
+
+    # Case 3: Page without "照片" property at all
+    page_no_photo_prop = Page(
+        id="p3",
+        index=3,
+        properties={
+            "地點": TitleProperty("宮川朝市"),
+        },
+    )
+    item3 = PlaceItem.from_page(page_no_photo_prop)
+    assert item3.has_photo is False
+
+

@@ -150,6 +150,101 @@ def test_cli_travel_enrich_photos_category_filter(
     assert manifest["success_count"] == 1
 
 
+def test_cli_travel_enrich_photos_missing_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    # Prepare export JSON where row 1 has a photo, row 2 does not
+    data = {
+        "meta": {
+            "database_id": "db-test",
+            "database_name": "行程安排",
+            "export_type": "full",
+            "order_property": "__NDM_INDEX__",
+        },
+        "rows": [
+            {
+                "index": 1,
+                "page_id": "p1",
+                "properties": {
+                    "地點": {"type": "title", "value": "手長足長像"},
+                    "照片": {"type": "files", "value": [{"name": "existing.jpg", "url": "https://example.com/ex.jpg"}]},
+                },
+            },
+            {
+                "index": 2,
+                "page_id": "p2",
+                "properties": {
+                    "地點": {"type": "title", "value": "高山車站"},
+                    "照片": {"type": "files", "value": []},
+                },
+            },
+        ],
+    }
+    input_file = tmp_path / "export_photos.json"
+    input_file.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "travel",
+            "enrich-photos",
+            "--input",
+            str(input_file),
+            "--provider",
+            "google",
+            "--google-api-key",
+            "AIzaSyFakeKey123",
+            "--missing-only",
+        ],
+    )
+
+    search_response = MagicMock()
+    search_response.status_code = 200
+    search_response.json.return_value = {
+        "places": [
+            {
+                "id": "place_2",
+                "displayName": {"text": "高山車站"},
+                "photos": [{"name": "places/p2/photos/ph2", "widthPx": 1200, "heightPx": 800}],
+            }
+        ]
+    }
+
+    media_response = MagicMock()
+    media_response.status_code = 200
+    media_response.content = b"fake-station-bytes"
+    media_response.headers = {"Content-Type": "image/jpeg"}
+    media_response.url = "https://places.googleapis.com/v1/places/p2/photos/ph2/media"
+
+    post_mock = AsyncMock(return_value=search_response)
+    get_mock = AsyncMock(return_value=media_response)
+
+    with patch.object(httpx.AsyncClient, "post", new=post_mock), patch.object(
+        httpx.AsyncClient, "get", new=get_mock
+    ):
+        main()
+
+    # Verify that only 1 item was searched/downloaded
+    assert post_mock.call_count == 1
+    assert get_mock.call_count == 1
+
+    manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
+    assert manifest_file.is_file()
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+
+    assert manifest["total_items"] == 2
+    assert manifest["processed_count"] == 1
+    assert manifest["skipped_count"] == 1
+    assert manifest["success_count"] == 1
+
+    assert manifest["items"][0]["status"] == "skipped"
+    assert manifest["items"][0]["error_message"] == "已有相片 (略過)"
+    assert manifest["items"][1]["status"] == "success"
+
+
 def test_cli_travel_enrich_photos_fail_fast(
     tmp_path: Path, sample_export_json: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

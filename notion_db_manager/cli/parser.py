@@ -108,6 +108,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=False,
         help="Do not purge existing images in target output directory before download (default: purge old files)",
     )
+    enrich_photos.add_argument(
+        "--missing-only",
+        action="store_true",
+        default=None,
+        help="Only fetch photos for places that do not have photos in Notion yet (default: fetch all)",
+    )
 
     # travel push-photos
     push_photos = travel_subparsers.add_parser(

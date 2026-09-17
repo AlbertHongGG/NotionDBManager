@@ -72,3 +72,22 @@ def test_travel_handler_invalid_action() -> None:
         handler.handle(args)
     assert "未知的 travel 動作" in str(exc_info.value)
 
+
+def test_cli_parser_enrich_photos_missing_only() -> None:
+    from notion_db_manager.cli.parser import build_parser
+
+    parser = build_parser()
+
+    # 1. Default when not specified -> None (so config resolver falls back to env or False)
+    args_default = parser.parse_args(["travel", "enrich-photos"])
+    assert args_default.missing_only is None
+
+    # 2. When passed on CLI -> True
+    args_flag = parser.parse_args(["travel", "enrich-photos", "--missing-only"])
+    assert args_flag.missing_only is True
+
+    # 3. Verify --no-missing-only does NOT exist and fails cleanly
+    with pytest.raises(SystemExit):
+        parser.parse_args(["travel", "enrich-photos", "--no-missing-only"])
+
+
