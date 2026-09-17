@@ -109,5 +109,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not purge existing images in target output directory before download (default: purge old files)",
     )
 
+    # travel push-photos
+    push_photos = travel_subparsers.add_parser(
+        "push-photos",
+        help="Upload locally staged photos to Notion database via official File Uploads API",
+    )
+    add_common_database_args(push_photos)
+    push_photos.add_argument(
+        "-i",
+        "--input",
+        default=None,
+        help="Path to manifest.json file (defaults to output/{database_name}/manifest.json)",
+    )
+    push_photos.add_argument(
+        "-c",
+        "--concurrency",
+        type=int,
+        default=None,
+        help="Maximum concurrent uploads (1 to 3, defaults to NOTION_DB_MANAGER_CONCURRENCY in .env or 2)",
+    )
+    push_photos.add_argument(
+        "--delay",
+        type=float,
+        default=0.2,
+        help="Delay in seconds between Notion API requests per worker (default: 0.2)",
+    )
 
     return parser

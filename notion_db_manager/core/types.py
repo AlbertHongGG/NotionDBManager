@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 ORDER_PROPERTY = "__NDM_INDEX__"
-NOTION_API_VERSION = "2022-06-28"
+NOTION_API_VERSION = "2026-03-11"
 
 ExportType = Literal["full", "columns", "rows"]
 ImportMode = Literal["append", "replace"]

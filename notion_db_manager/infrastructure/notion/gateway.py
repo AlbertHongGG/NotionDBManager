@@ -209,7 +209,10 @@ class NotionGatewayImpl:
 
     def archive_pages(self, page_ids: list[str]) -> None:
         for page_id in page_ids:
-            self.client.request("PATCH", f"/pages/{page_id}", {"archived": True})
+            self.client.request("PATCH", f"/pages/{page_id}", {"in_trash": True})
+
+    def upload_file(self, filename: str, file_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+        return self.client.upload_file(filename=filename, file_bytes=file_bytes, mime_type=mime_type)
 
     def _query_all_pages(self, database_id: str, sorts: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {"page_size": 100}

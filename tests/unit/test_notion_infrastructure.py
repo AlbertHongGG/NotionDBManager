@@ -97,3 +97,29 @@ def test_notion_gateway_create_page() -> None:
     assert created.id == "new-page-id"
     assert created.index == 1
     assert created.properties["Name"].value == "New Task"
+
+
+def test_notion_gateway_upload_file() -> None:
+    mock_client = MagicMock()
+    mock_client.upload_file.return_value = "fu_test_789"
+
+    gateway = NotionGatewayImpl(client=mock_client)
+    upload_id = gateway.upload_file("sample.jpg", b"fake_bytes", "image/jpeg")
+
+    assert upload_id == "fu_test_789"
+    mock_client.upload_file.assert_called_once_with(
+        filename="sample.jpg",
+        file_bytes=b"fake_bytes",
+        mime_type="image/jpeg",
+    )
+
+
+def test_notion_gateway_archive_pages_in_trash() -> None:
+    mock_client = MagicMock()
+    gateway = NotionGatewayImpl(client=mock_client)
+    gateway.archive_pages(["page-1", "page-2"])
+
+    assert mock_client.request.call_count == 2
+    mock_client.request.assert_any_call("PATCH", "/pages/page-1", {"in_trash": True})
+    mock_client.request.assert_any_call("PATCH", "/pages/page-2", {"in_trash": True})
+

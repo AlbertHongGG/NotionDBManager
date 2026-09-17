@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
+import pytest
 
 from notion_db_manager.core.config import EnvLoader, NotionConnectionConfig
 
@@ -132,6 +134,39 @@ def test_configuration_resolver_travel_photo(tmp_path: Path, monkeypatch) -> Non
     args_invalid = argparse.Namespace(concurrency=0)
     with pytest.raises(ValidationError, match="大於或等於 1"):
         ConfigurationResolver.resolve_travel_photo_config(args_invalid, default_concurrency=3, env_path=empty_env)
+
+
+def test_resolve_travel_push_config(tmp_path: Path, monkeypatch) -> None:
+    from notion_db_manager.core.config import ConfigurationResolver, MAX_PUSH_CONCURRENCY, TravelPhotoPushConfig
+    from notion_db_manager.core.exceptions import ValidationError
+
+    empty_env = tmp_path / ".env"
+    empty_env.write_text("", encoding="utf-8")
+    monkeypatch.delenv("NOTION_DB_MANAGER_CONCURRENCY", raising=False)
+
+    # 1. Default resolution
+    args = argparse.Namespace(token="token_abc", database_name="db_1")
+    cfg = ConfigurationResolver.resolve_travel_push_config(args, env_path=empty_env)
+    assert cfg.token == "token_abc"
+    assert cfg.database_name == "db_1"
+    assert cfg.concurrency == 2
+    assert cfg.delay == 0.2
+
+    # 2. Concurrency capped at MAX_PUSH_CONCURRENCY
+    args_over_cap = argparse.Namespace(token="token_abc", database_name="db_1", concurrency=4)
+    with pytest.raises(ValidationError, match=f"最高為 {MAX_PUSH_CONCURRENCY}"):
+        ConfigurationResolver.resolve_travel_push_config(args_over_cap, env_path=empty_env)
+
+    # 3. Concurrency < 1 rejected
+    args_zero = argparse.Namespace(token="token_abc", database_name="db_1", concurrency=0)
+    with pytest.raises(ValidationError, match=f"最高為 {MAX_PUSH_CONCURRENCY}"):
+        ConfigurationResolver.resolve_travel_push_config(args_zero, env_path=empty_env)
+
+    # 4. Valid custom concurrency (3)
+    args_valid = argparse.Namespace(token="token_abc", database_name="db_1", concurrency=3, delay=0.5)
+    cfg_valid = ConfigurationResolver.resolve_travel_push_config(args_valid, env_path=empty_env)
+    assert cfg_valid.concurrency == 3
+    assert cfg_valid.delay == 0.5
 
 
 

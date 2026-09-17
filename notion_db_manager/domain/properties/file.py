@@ -18,15 +18,30 @@ class FileProperty(BasePropertyValue):
     def to_notion_payload(self) -> dict[str, Any]:
         files_payload: list[dict[str, Any]] = []
         for item in self._value:
-            url = item.get("url", "")
-            name = item.get("name") or url
-            files_payload.append(
-                {
-                    "name": name,
-                    "type": "external",
-                    "external": {"url": url},
-                }
+            name = item.get("name") or "file"
+            file_type = item.get("type")
+            upload_id = item.get("file_upload_id") or (
+                item.get("file_upload", {}).get("id") if isinstance(item.get("file_upload"), dict) else None
             )
+
+            if file_type == "file_upload" or upload_id:
+                files_payload.append(
+                    {
+                        "name": name,
+                        "type": "file_upload",
+                        "file_upload": {"id": upload_id or item.get("id")},
+                    }
+                )
+            else:
+                url = item.get("url", "")
+                name = item.get("name") or url
+                files_payload.append(
+                    {
+                        "name": name,
+                        "type": "external",
+                        "external": {"url": url},
+                    }
+                )
         return {"files": files_payload}
 
     def get_empty_notion_payload(self) -> dict[str, Any]:
@@ -38,14 +53,25 @@ class FileProperty(BasePropertyValue):
         serialized = []
         for item in raw_files:
             file_type = item.get("type", "external")
-            url = item.get(file_type, {}).get("url", "")
-            serialized.append(
-                {
-                    "name": item.get("name"),
-                    "type": file_type,
-                    "url": url,
-                }
-            )
+            name = item.get("name")
+            if file_type == "file_upload":
+                upload_id = item.get("file_upload", {}).get("id")
+                serialized.append(
+                    {
+                        "name": name,
+                        "type": "file_upload",
+                        "file_upload_id": upload_id,
+                    }
+                )
+            else:
+                url = item.get(file_type, {}).get("url", "")
+                serialized.append(
+                    {
+                        "name": name,
+                        "type": file_type,
+                        "url": url,
+                    }
+                )
         return cls(serialized)
 
     @classmethod

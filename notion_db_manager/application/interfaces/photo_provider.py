@@ -3,7 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
-from notion_db_manager.domain.travel import TravelPhotoEnrichSummary, PlaceItem, PlacePhoto
+from notion_db_manager.domain.travel import (
+    EnrichItemResult,
+    PlaceItem,
+    PlacePhoto,
+    TravelPhotoEnrichSummary,
+)
 
 
 
@@ -38,4 +43,12 @@ class PhotoStorage(Protocol):
 
     def save_manifest(self, database_name: str, summary: TravelPhotoEnrichSummary) -> Path:
         """Saves an enrichment run manifest JSON and returns the saved file path."""
+        ...
+
+    def read_manifest(self, database_name: str, custom_path: Path | None = None) -> TravelPhotoEnrichSummary:
+        """Reads and deserializes the local manifest.json record."""
+        ...
+
+    def load_photo_bytes(self, database_name: str, item: EnrichItemResult) -> bytes:
+        """Reads local photo binary bytes from disk for the specified place item."""
         ...

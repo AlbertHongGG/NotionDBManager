@@ -3,14 +3,21 @@ from __future__ import annotations
 import argparse
 from typing import Callable
 
-from notion_db_manager.application.commands.travel import TravelEnrichPhotosCommand
+from notion_db_manager.application.commands.travel import (
+    TravelEnrichPhotosCommand,
+    TravelPushPhotosCommand,
+)
 from notion_db_manager.cli.handlers.base import ActionHandler
 from notion_db_manager.cli.prompt import resolve_settings
 from notion_db_manager.cli.runner import AsyncCommandRunner
 from notion_db_manager.core.config import ConfigurationResolver
 from notion_db_manager.core.exceptions import ValidationError
 from notion_db_manager.domain.models import DatabaseQuery, PageReference
-from notion_db_manager.domain.travel import PlaceItem, TravelPhotoEnrichSummary
+from notion_db_manager.domain.travel import (
+    PlaceItem,
+    TravelPhotoEnrichSummary,
+    TravelPhotoPushSummary,
+)
 from notion_db_manager.infrastructure.notion import NotionGatewayImpl, NotionHttpClient
 from notion_db_manager.infrastructure.photos import LocalPhotoStorage, PhotoProviderFactory, sanitize_filename
 from notion_db_manager.infrastructure.storage import JsonDocumentStorage, PathResolver
@@ -26,6 +33,7 @@ class TravelHandler(ActionHandler):
     def __init__(self) -> None:
         self._actions: dict[str, Callable[[argparse.Namespace], None]] = {
             "enrich-photos": self._handle_enrich_photos,
+            "push-photos": self._handle_push_photos,
         }
 
     def handle(self, args: argparse.Namespace) -> None:
@@ -102,3 +110,47 @@ class TravelHandler(ActionHandler):
         print(f"圖片儲存目錄: output/images/{clean_db}/")
         print(f"詳細報告檔案: output/images/{clean_db}/manifest.json")
         print("=" * 55)
+
+    def _handle_push_photos(self, args: argparse.Namespace) -> None:
+        push_config = ConfigurationResolver.resolve_travel_push_config(args)
+        if not push_config.token:
+            settings = resolve_settings(args)
+            token = settings.token
+            db_name = push_config.database_name or settings.database_name or ""
+        else:
+            token = push_config.token
+            db_name = push_config.database_name
+
+        if not db_name and not push_config.database_id:
+            db_name = input("Database name: ").strip()
+
+        client = NotionHttpClient(token=token)
+        gateway = NotionGatewayImpl(client=client)
+        photo_storage = LocalPhotoStorage(path_resolver=PathResolver())
+
+        def on_progress(idx: int, total: int, name: str, status: str) -> None:
+            print(f"[{idx}/{total}] {name}: {status}")
+
+        cmd = TravelPushPhotosCommand(
+            gateway=gateway,
+            storage=photo_storage,
+            progress_callback=on_progress,
+        )
+
+        async def _run() -> TravelPhotoPushSummary:
+            return await cmd.execute(
+                database_name=db_name,
+                custom_manifest=push_config.input_manifest,
+                concurrency=push_config.concurrency,
+                delay=push_config.delay,
+            )
+
+        summary = AsyncCommandRunner.run(_run)
+
+        print("\n" + "=" * 55)
+        print(f"照片上傳 Notion 完成！總計 {summary.total_items} 筆項目（並發數: {push_config.concurrency}）：")
+        print(f"  - 成功上傳: {summary.success_count} 筆")
+        print(f"  - 略過項目: {summary.skipped_count} 筆")
+        print(f"  - 失敗項目: {summary.failed_count} 筆")
+        print("=" * 55)
+

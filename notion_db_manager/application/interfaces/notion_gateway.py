@@ -39,3 +39,7 @@ class NotionGateway(Protocol):
     def archive_pages(self, page_ids: list[str]) -> None:
         """Archive a batch of pages by their IDs."""
         ...
+
+    def upload_file(self, filename: str, file_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+        """Uploads raw file bytes to Notion workspace storage and returns the file_upload ID."""
+        ...

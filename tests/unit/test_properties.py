@@ -126,6 +126,38 @@ def test_file_property() -> None:
     assert files.get_empty_notion_payload() == {"files": []}
 
 
+def test_file_property_upload() -> None:
+    files = FileProperty([{"name": "photo.jpg", "type": "file_upload", "file_upload_id": "fu_123"}])
+    assert files.to_notion_payload() == {
+        "files": [
+            {
+                "name": "photo.jpg",
+                "type": "file_upload",
+                "file_upload": {"id": "fu_123"},
+            }
+        ]
+    }
+
+    # Test from_notion
+    notion_raw = {
+        "files": [
+            {
+                "name": "uploaded.png",
+                "type": "file_upload",
+                "file_upload": {"id": "upload_456"},
+            }
+        ]
+    }
+    deserialized = FileProperty.from_notion(notion_raw)
+    assert deserialized.value == [
+        {
+            "name": "uploaded.png",
+            "type": "file_upload",
+            "file_upload_id": "upload_456",
+        }
+    ]
+
+
 def test_readonly_property() -> None:
     ro = ReadOnlyProperty("formula", 123)
     assert ro.is_readonly is True

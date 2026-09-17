@@ -333,3 +333,66 @@ def test_cli_travel_enrich_photos_concurrency_cli_override(
 
     manifest_file = tmp_path / "output" / "images" / "行程安排" / "manifest.json"
     assert manifest_file.is_file()
+
+
+def test_cli_travel_push_photos(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    # Setup staged photo and manifest
+    img_dir = tmp_path / "output" / "images" / "行程安排"
+    img_dir.mkdir(parents=True, exist_ok=True)
+    photo_path = img_dir / "01_手長足長像.jpg"
+    photo_path.write_bytes(b"test_image_binary")
+
+    manifest_data = {
+        "database_name": "行程安排",
+        "provider": "google",
+        "total_items": 1,
+        "processed_count": 1,
+        "skipped_count": 0,
+        "success_count": 1,
+        "failed_count": 0,
+        "items": [
+            {
+                "index": 1,
+                "page_id": "page_test_1",
+                "name": "手長足長像",
+                "status": "success",
+                "categories": ["景點"],
+                "local_path": str(photo_path),
+                "source_url": "https://example.com/img.jpg",
+                "error_message": None,
+            }
+        ],
+    }
+    (img_dir / "manifest.json").write_text(json.dumps(manifest_data, ensure_ascii=False), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "notion-db-manager",
+            "travel",
+            "push-photos",
+            "--database-name",
+            "行程安排",
+            "--token",
+            "secret_test_token",
+            "-c",
+            "2",
+        ],
+    )
+
+    with patch("notion_db_manager.infrastructure.notion.gateway.NotionGatewayImpl.upload_file", return_value="fu_12345") as mock_upload, \
+         patch("notion_db_manager.infrastructure.notion.gateway.NotionGatewayImpl.update_page_properties") as mock_update:
+        main()
+
+        mock_upload.assert_called_once_with(
+            filename="01_手長足長像.jpg",
+            file_bytes=b"test_image_binary",
+            mime_type="image/jpeg",
+        )
+        assert mock_update.call_count == 1
+        call_args = mock_update.call_args
+        assert call_args[0][0] == "page_test_1"
+        assert call_args[0][1]["照片"]["files"][0]["file_upload"]["id"] == "fu_12345"
+

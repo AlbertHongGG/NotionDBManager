@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from notion_db_manager.core.exceptions import ConfigurationError
+from notion_db_manager.core.exceptions import ConfigurationError, ValidationError
 
 
 ENV_TOKEN_KEYS = ("NOTION_DB_MANAGER_TOKEN", "NOTION_TOKEN")
@@ -48,8 +48,32 @@ class TravelPhotoEnrichConfig:
             raise ConfigurationError(f"並發數量 (concurrency) 必須為大於或等於 1 的正整數，收到: {self.concurrency}")
 
 
+MAX_PUSH_CONCURRENCY: int = 3
 
 
+@dataclass(frozen=True, slots=True)
+class TravelPhotoPushConfig:
+    """Configuration required for Travel Notion Template photo push tasks."""
+
+    token: str
+    database_name: str
+    database_id: str | None = None
+    page: str | None = None
+    input_manifest: Path | None = None
+    concurrency: int = 2
+    delay: float = 0.2
+
+    def __post_init__(self) -> None:
+        if not self.token or not self.token.strip():
+            raise ConfigurationError("必須提供 Notion token (可由參數或 .env 設定)")
+        if not self.database_name and not self.database_id:
+            raise ConfigurationError("必須提供 Notion Database Name 或 Database ID (可由參數或 .env 設定)")
+        if self.concurrency < 1 or self.concurrency > MAX_PUSH_CONCURRENCY:
+            raise ValidationError(
+                f"Notion API 限制上傳並發數最高為 {MAX_PUSH_CONCURRENCY}，請設定 1 ~ {MAX_PUSH_CONCURRENCY}，收到: {self.concurrency}"
+            )
+        if self.delay < 0:
+            raise ValidationError(f"延遲時間 (delay) 不能小於 0，收到: {self.delay}")
 
 
 class EnvLoader:
@@ -195,7 +219,41 @@ class ConfigurationResolver:
             google_api_key=google_api_key,
         )
 
+    @classmethod
+    def resolve_travel_push_config(
+        cls,
+        args: Any,
+        env_path: Path | None = None,
+    ) -> TravelPhotoPushConfig:
+        """Resolves Travel Notion Template photo push parameters."""
+        EnvLoader.load(env_path)
 
+        token = getattr(args, "token", None) or EnvLoader.get_token() or ""
+        database_id = getattr(args, "database_id", None) or EnvLoader.get_database_id()
+        database_name = getattr(args, "database_name", None) or EnvLoader.get_database_name() or ""
+        page = getattr(args, "page", None) or EnvLoader.get_page()
 
+        # Input manifest
+        raw_input = getattr(args, "input", None)
+        input_manifest = Path(raw_input) if raw_input else None
 
+        # Concurrency resolution: CLI -> .env -> default (2)
+        cli_concurrency = getattr(args, "concurrency", None)
+        if cli_concurrency is not None:
+            concurrency = cli_concurrency
+        else:
+            env_concurrency = EnvLoader.get_concurrency()
+            concurrency = env_concurrency if env_concurrency is not None else 2
 
+        raw_delay = getattr(args, "delay", None)
+        delay = float(raw_delay) if raw_delay is not None else 0.2
+
+        return TravelPhotoPushConfig(
+            token=token,
+            database_name=database_name,
+            database_id=database_id,
+            page=page,
+            input_manifest=input_manifest,
+            concurrency=concurrency,
+            delay=delay,
+        )
